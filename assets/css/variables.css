@@ -1,0 +1,12 @@
+:root {
+  --bg:        #0a0a0a;
+  --bg-raised:  #111111;
+  --bg-hover:   #1a1a1a;
+  --border:     #222222;
+  --text:       #e0e0e0;
+  --text-muted: #555555;
+  --accent:     #ffffff;
+  --footer-h:   72px;
+  --aside-w:   200px;
+  --article-w: 240px; 
+}

@@ -1,0 +1,58 @@
+aside {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: var(--footer-h);
+  width: var(--aside-w);
+  min-width: var(--aside-w); 
+  background-color: var(--bg-raised);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.project-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.project-title h1 {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--text);
+}
+
+.project-title i {
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+.playlists {
+  overflow-y: scroll;
+  flex: 1;
+  padding: 8px 0;
+}
+
+.playlists ul {
+  list-style: none;
+}
+
+.playlists li {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 7px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlists li:hover {
+  color: var(--text);
+  background-color: var(--bg-hover);
+}

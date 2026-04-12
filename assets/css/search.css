@@ -1,0 +1,133 @@
+article {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: var(--footer-h);
+  width: var(--article-w);
+  border-left: 1px solid var(--border);
+  background-color: var(--bg-raised);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.search-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.search-container i {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+#search {
+  flex: 1;
+  font-size: 12px;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  outline: none;
+}
+
+#search::placeholder {
+  color: var(--text-muted);
+}
+
+#search:focus {
+  border-color: #333;
+}
+
+.search-results {
+  overflow-y: scroll;
+  flex: 1;
+  padding: 12px 0;
+}
+
+/* ── Playlist results ── */
+.playlists-results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.playlist-result {
+  width: 100px;
+  cursor: pointer;
+}
+
+.playlist-result:hover .playlist-result-name {
+  color: var(--accent);
+}
+
+.playlists-results img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  display: block;
+  filter: grayscale(20%);
+}
+
+.playlists-results h3 {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text);
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlists-results p {
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+/* ── Track results ── */
+.tracks-results {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.track-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.track-result:hover {
+  background-color: var(--bg-hover);
+}
+
+.tracks-results img {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.track-result p {
+  font-size: 10px;
+  color: var(--text);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.track-result p:last-child {
+  color: var(--text-muted);
+}
