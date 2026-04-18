@@ -7,8 +7,7 @@ function setStatus(msg: string) {
 }
 
 function navigateTo(page: string) {
-  const base = window.location.href.split("/").slice(0, -1).join("/");
-  window.location.href = `${base}/${page}`;
+  window.location.href = `${window.location.origin}/${page}`;
 }
 
 async function initialize() {
