@@ -54,8 +54,7 @@ impl PlayerInner {
     fn current_position(&self) -> u32 {
         if self.is_playing {
             if let Some(started) = self.started_at {
-                return self.position_ms
-                    + started.elapsed().as_millis() as u32;
+                return self.position_ms + started.elapsed().as_millis() as u32;
             }
         }
         self.position_ms
@@ -66,7 +65,6 @@ pub struct LibrespotPlayer {
     pub player: Arc<Player>,
     pub mixer: Arc<SoftMixer>,
     pub spirc: Arc<Spirc>,
-    pub queue: Arc<Mutex<Vec<String>>>,
     pub access_token: String,
     inner: Arc<Mutex<PlayerInner>>,
 }
@@ -76,44 +74,30 @@ impl LibrespotPlayer {
         eprintln!("[bardo] Starting OAuth flow...");
 
         let token = tokio::task::spawn_blocking(|| {
-            OAuthClientBuilder::new(
-                SPOTIFY_CLIENT_ID,
-                REDIRECT_URI,
-                SCOPES.to_vec(),
-            )
-            .open_in_browser()
-            .build()
-            .map_err(|e| format!("OAuth build failed: {e}"))?
-            .get_access_token()
-            .map_err(|e| format!("OAuth failed: {e}"))
+            OAuthClientBuilder::new(SPOTIFY_CLIENT_ID, REDIRECT_URI, SCOPES.to_vec())
+                .open_in_browser()
+                .build()
+                .map_err(|e| format!("OAuth build failed: {e}"))?
+                .get_access_token()
+                .map_err(|e| format!("OAuth failed: {e}"))
         })
         .await
         .map_err(|e| format!("Task failed: {e}"))??;
 
-        eprintln!(
-            "[bardo] OAuth succeeded. Expires in {:#?}s",
-            token.expires_at
-        );
+        eprintln!("[bardo] OAuth succeeded. Expires at {:#?}", token.expires_at);
 
         let access_token = token.access_token.clone();
         let credentials = Credentials::with_access_token(&access_token);
 
-        // Retry loop — each attempt gets a completely fresh session
         eprintln!("[bardo] Initializing session + Spirc...");
         let (session, player, mixer, spirc, spirc_task) =
             Self::init_spirc(credentials.clone()).await?;
 
-        // Watch spirc task — if it exits, device disappears
         tokio::spawn(async move {
             spirc_task.await;
-            eprintln!(
-                "[bardo] WARNING: spirc_task ended — \
-                 device disappeared from Spotify Connect"
-            );
+            eprintln!("[bardo] WARNING: spirc_task ended — device disappeared from Spotify Connect");
         });
 
-        let queue: Arc<Mutex<Vec<String>>> =
-            Arc::new(Mutex::new(vec![]));
         let inner = Arc::new(Mutex::new(PlayerInner {
             position_ms: 0,
             started_at: None,
@@ -124,54 +108,21 @@ impl LibrespotPlayer {
             player.get_player_event_channel(),
             session,
             app_handle.clone(),
-            queue.clone(),
-            player.clone(),
             inner.clone(),
         );
 
         Self::spawn_position_ticker(app_handle, inner.clone());
 
-        eprintln!(
-            "[bardo] LibrespotPlayer ready. \
-             Device 'Bardo' should be visible."
-        );
+        eprintln!("[bardo] LibrespotPlayer ready. Device 'Bardo' should be visible.");
 
         Ok(Self {
             player,
             mixer,
             spirc: Arc::new(spirc),
-            queue,
             access_token,
             inner,
         })
     }
-
-    pub async fn transfer_playback(
-        access_token: &str,
-        device_id: &str,
-    ) -> Result<(), String> {
-        eprintln!("[bardo] Transferring playback to device {device_id}...");
-        let client = reqwest::Client::new();
-        let res = client
-            .put("https://api.spotify.com/v1/me/player")
-            .bearer_auth(access_token)
-            .json(&serde_json::json!({
-                "device_ids": [device_id],
-                "play": false
-            }))
-            .send()
-            .await
-            .map_err(|e| format!("Transfer playback request failed: {e}"))?;
-
-        let status = res.status();
-        if status.is_success() || status.as_u16() == 204 {
-            eprintln!("[bardo] Playback transferred successfully.");
-            Ok(())
-        } else {
-            let body = res.text().await.unwrap_or_default();
-            Err(format!("Transfer playback failed ({status}): {body}"))
-        }
-    }    
 
     async fn init_spirc(
         credentials: Credentials,
@@ -191,13 +142,8 @@ impl LibrespotPlayer {
 
         for attempt in 1u8..=5 {
             eprintln!("[bardo] Attempt {attempt}/5: creating fresh session...");
-
-            // Do NOT call session.connect() — Spirc::new() does it internally
-            // after registering its own message listeners first
             let session = Session::new(SessionConfig::default(), None);
-
-            let mixer =
-                Arc::new(SoftMixer::open(MixerConfig::default()).unwrap());
+            let mixer = Arc::new(SoftMixer::open(MixerConfig::default()).unwrap());
 
             eprintln!("[bardo] Attempt {attempt}/5: creating player...");
             let player = Player::new(
@@ -224,8 +170,7 @@ impl LibrespotPlayer {
             {
                 Ok((spirc, task)) => {
                     eprintln!(
-                        "[bardo] Spirc started on attempt {attempt}. \
-                        Username: {:?}",
+                        "[bardo] Spirc started on attempt {attempt}. Username: {:?}",
                         session.username()
                     );
                     return Ok((session, player, mixer, spirc, task));
@@ -233,10 +178,7 @@ impl LibrespotPlayer {
                 Err(e) => {
                     last_err = e.to_string();
                     eprintln!("[bardo] Spirc failed (attempt {attempt}): {e}");
-                    tokio::time::sleep(Duration::from_millis(
-                        500 * attempt as u64,
-                    ))
-                    .await;
+                    tokio::time::sleep(Duration::from_millis(500 * attempt as u64)).await;
                 }
             }
         }
@@ -248,8 +190,6 @@ impl LibrespotPlayer {
         mut event_channel: librespot_playback::player::PlayerEventChannel,
         session: Session,
         app: AppHandle,
-        queue: Arc<Mutex<Vec<String>>>,
-        player: Arc<Player>,
         inner: Arc<Mutex<PlayerInner>>,
     ) {
         tokio::spawn(async move {
@@ -257,13 +197,8 @@ impl LibrespotPlayer {
             while let Some(event) = event_channel.recv().await {
                 match event {
                     PlayerEvent::TrackChanged { audio_item } => {
-                        eprintln!(
-                            "[bardo] TrackChanged: {}",
-                            audio_item.uri
-                        );
-                        match Track::get(&session, &audio_item.track_id)
-                            .await
-                        {
+                        eprintln!("[bardo] TrackChanged: {}", audio_item.uri);
+                        match Track::get(&session, &audio_item.track_id).await {
                             Ok(track) => {
                                 let artists = track
                                     .artists
@@ -281,9 +216,7 @@ impl LibrespotPlayer {
                                     .map(|img| {
                                         format!(
                                             "https://i.scdn.co/image/{}",
-                                            img.id
-                                                .to_string()
-                                                .to_lowercase()
+                                            img.id.to_string().to_lowercase()
                                         )
                                     })
                                     .unwrap_or_default();
@@ -302,9 +235,7 @@ impl LibrespotPlayer {
                                 );
                                 let _ = app.emit("track_changed", info);
                             }
-                            Err(e) => eprintln!(
-                                "[bardo] Track fetch error: {e}"
-                            ),
+                            Err(e) => eprintln!("[bardo] Track fetch error: {e}"),
                         }
                     }
 
@@ -314,7 +245,6 @@ impl LibrespotPlayer {
                         s.position_ms = position_ms;
                         s.started_at = Some(Instant::now());
                         s.is_playing = true;
-                        let _ = app.emit("player_playing", ());
                     }
 
                     PlayerEvent::Paused { position_ms, .. } => {
@@ -323,7 +253,7 @@ impl LibrespotPlayer {
                         s.position_ms = position_ms;
                         s.started_at = None;
                         s.is_playing = false;
-                        let _ = app.emit("player_paused", position_ms);
+                        let _ = app.emit("player_paused", ());
                     }
 
                     PlayerEvent::Stopped { .. } => {
@@ -335,6 +265,7 @@ impl LibrespotPlayer {
                         let _ = app.emit("player_stopped", ());
                     }
 
+                    // Rust only signals end-of-track. TS owns what plays next.
                     PlayerEvent::EndOfTrack { .. } => {
                         eprintln!("[bardo] EndOfTrack.");
                         {
@@ -343,38 +274,19 @@ impl LibrespotPlayer {
                             s.started_at = None;
                             s.is_playing = false;
                         }
-                        let next =
-                            queue.lock().unwrap().drain(..1).next();
-                        match next {
-                            Some(uri) => {
-                                eprintln!(
-                                    "[bardo] Advancing to: {uri}"
-                                );
-                                load_uri(&player, &uri);
-                            }
-                            None => {
-                                eprintln!("[bardo] Queue empty.");
-                                let _ = app.emit("track_ended", ());
-                            }
-                        }
+                        let _ = app.emit("track_ended", ());
                     }
 
                     _ => {}
                 }
             }
-            eprintln!(
-                "[bardo] WARNING: event_channel closed — event loop exited"
-            );
+            eprintln!("[bardo] WARNING: event_channel closed — event loop exited");
         });
     }
 
-    fn spawn_position_ticker(
-        app: AppHandle,
-        inner: Arc<Mutex<PlayerInner>>,
-    ) {
+    fn spawn_position_ticker(app: AppHandle, inner: Arc<Mutex<PlayerInner>>) {
         tokio::spawn(async move {
-            let mut interval =
-                tokio::time::interval(Duration::from_secs(1));
+            let mut interval = tokio::time::interval(Duration::from_secs(1));
             loop {
                 interval.tick().await;
                 let (is_playing, pos) = {
@@ -388,31 +300,10 @@ impl LibrespotPlayer {
         });
     }
 
-    pub fn play_tracks(&self, uris: Vec<String>) {
-        let mut iter = uris.into_iter();
-        if let Some(first) = iter.next() {
-            let mut q = self.queue.lock().unwrap();
-            q.clear();
-            q.extend(iter);
-            drop(q);
-            eprintln!("[bardo] play_tracks: loading {first}");
-            load_uri(&self.player, &first);
-            
-        }
-    }
-
-    pub fn next_track(&self) {
-        let next = self.queue.lock().unwrap().drain(..1).next();
-        match next {
-            Some(uri) => {
-                eprintln!("[bardo] next_track: {uri}");
-                load_uri(&self.player, &uri);
-            }
-            None => {
-                eprintln!("[bardo] next_track: queue empty, stopping.");
-                self.player.stop();
-            }
-        }
+    /// Play a single track URI. TS manages everything else.
+    pub fn play_track(&self, uri: String) {
+        eprintln!("[bardo] play_track: {uri}");
+        load_uri(&self.player, &uri);
     }
 
     pub fn pause(&self) {
@@ -434,8 +325,7 @@ impl LibrespotPlayer {
     }
 
     pub fn set_volume(&self, volume: f64) {
-        let v = (volume * u16::MAX as f64).clamp(0.0, u16::MAX as f64)
-            as u16;
+        let v = (volume * u16::MAX as f64).clamp(0.0, u16::MAX as f64) as u16;
         eprintln!("[bardo] set_volume({volume} -> raw {v})");
         self.mixer.set_volume(v);
     }

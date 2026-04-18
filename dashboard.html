@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="./assets/css/footer.css" />
     <link rel="stylesheet" href="./assets/css/playlists.css" />
     <link rel="stylesheet" href="./assets/css/search.css" />
+    <link rel="stylesheet" href="./assets/css/queue.css" />
     <link rel="stylesheet" href="./assets/css/main.css" />
     <link rel="stylesheet" href="./assets/css/dashboard.css" />
     <link rel="stylesheet" href="./assets/css/variables.css" />
@@ -24,7 +25,6 @@
           <h1>Bardo</h1>
         </div>
         <div class="playlists">
-          <!-- Renderizado pelo dashboard.ts -->
           <ul id="playlist-list"></ul>
         </div>
       </aside>
@@ -46,7 +46,7 @@
         </div>
       </main>
       <article>
-        <div class="search-content">
+        <div class="search-content" id="search-panel">
           <div class="search-container">
             <input type="text" id="search" placeholder="Search.." />
             <i class="fa fa-search"></i>
@@ -57,6 +57,14 @@
               <div class="tracks-results"></div>
             </div>
           </div>
+        </div>
+        <div class="queue-panel" id="queue-panel" style="display: none">
+          <div class="queue-header">
+            <h3>Queue</h3>
+            <span id="queue-count">0 tracks</span>
+          </div>
+          <ul class="queue-list" id="queue-list"></ul>
+          <p class="queue-empty" id="queue-empty">Queue is empty</p>
         </div>
       </article>
       <footer>
@@ -90,6 +98,9 @@
           </div>
         </div>
         <div class="volume-slider">
+          <button id="queue-toggle" title="Toggle queue">
+            <i class="fa-solid fa-list"></i>
+          </button>
           <i class="fa-solid fa-volume-high"></i>
           <input type="range" id="volume-control" value="50" />
         </div>

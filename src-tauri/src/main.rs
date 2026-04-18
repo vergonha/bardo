@@ -15,7 +15,6 @@ pub struct SpotifyState {
 
 pub struct PlayerState(pub Mutex<Option<LibrespotPlayer>>);
 
-
 #[derive(serde::Deserialize)]
 struct AppConfig {
     spotify: SpotifyConfig,
@@ -35,11 +34,11 @@ fn config_path() -> PathBuf {
 
 fn load_config() -> Result<AppConfig, String> {
     let path = config_path();
-    let content = fs::read_to_string(&path).map_err(|_| {
-        format!("bardo.config.toml not found at {}", path.display())
-    })?;
+    let content = fs::read_to_string(&path)
+        .map_err(|_| format!("bardo.config.toml not found at {}", path.display()))?;
     toml::from_str(&content).map_err(|e| format!("Config parse error: {e}"))
 }
+
 #[tauri::command]
 async fn run_spotify_login(
     state: State<'_, SpotifyState>,
@@ -49,16 +48,12 @@ async fn run_spotify_login(
     eprintln!("[bardo] run_spotify_login called");
     let p = LibrespotPlayer::new(app).await?;
     let token = p.access_token.clone();
-
     *state.access_token.lock().unwrap() = Some(token.clone());
     *player_state.0.lock().unwrap() = Some(p);
-
     eprintln!("[bardo] Login complete, token stored.");
     Ok(token)
 }
 
-/// Called on app start — if a player is already running this is a no-op,
-/// otherwise it re-runs the full OAuth login.
 #[tauri::command]
 async fn refresh_token(
     state: State<'_, SpotifyState>,
@@ -66,8 +61,6 @@ async fn refresh_token(
     app: AppHandle,
 ) -> Result<String, String> {
     eprintln!("[bardo] refresh_token called");
-
-    // If we already have a live token + player, just return the token
     {
         let token_guard = state.access_token.lock().unwrap();
         let player_guard = player_state.0.lock().unwrap();
@@ -76,23 +69,17 @@ async fn refresh_token(
             return Ok(token_guard.clone().unwrap());
         }
     }
-
-    // No live session — re-run full OAuth
     eprintln!("[bardo] No live session, starting fresh OAuth...");
     let p = LibrespotPlayer::new(app).await?;
     let token = p.access_token.clone();
-
     *state.access_token.lock().unwrap() = Some(token.clone());
     *player_state.0.lock().unwrap() = Some(p);
-
     eprintln!("[bardo] refresh_token: new session ready.");
     Ok(token)
 }
 
 #[tauri::command]
-fn get_access_token(
-    state: State<'_, SpotifyState>,
-) -> Result<String, String> {
+fn get_access_token(state: State<'_, SpotifyState>) -> Result<String, String> {
     state
         .access_token
         .lock()
@@ -106,7 +93,6 @@ fn check_config() -> Result<(), String> {
     load_config().map(|_| ())
 }
 
-/// Still exposed in case the frontend needs to build the auth URL manually.
 #[tauri::command]
 fn get_client_id() -> Result<String, String> {
     load_config().map(|c| c.spotify.client_id)
@@ -117,43 +103,18 @@ fn player_play_track(
     uri: String,
     player_state: State<'_, PlayerState>,
 ) -> Result<(), String> {
-    let guard = player_state.0.lock().unwrap();
-    guard
-        .as_ref()
-        .ok_or("Player not started")?
-        .play_tracks(vec![uri]);
-    Ok(())
-}
-
-#[tauri::command]
-fn player_next_track(player_state: State<'_, PlayerState>) -> Result<(), String> {
     player_state
         .0
         .lock()
         .unwrap()
         .as_ref()
         .ok_or("Player not started")?
-        .next_track();
+        .play_track(uri);
     Ok(())
 }
 
 #[tauri::command]
-fn player_play_tracks(
-    uris: Vec<String>,
-    player_state: State<'_, PlayerState>,
-) -> Result<(), String> {
-    let guard = player_state.0.lock().unwrap();
-    guard
-        .as_ref()
-        .ok_or("Player not started")?
-        .play_tracks(uris);
-    Ok(())
-}
-
-#[tauri::command]
-fn player_pause(
-    player_state: State<'_, PlayerState>,
-) -> Result<(), String> {
+fn player_pause(player_state: State<'_, PlayerState>) -> Result<(), String> {
     player_state
         .0
         .lock()
@@ -165,9 +126,7 @@ fn player_pause(
 }
 
 #[tauri::command]
-fn player_resume(
-    player_state: State<'_, PlayerState>,
-) -> Result<(), String> {
+fn player_resume(player_state: State<'_, PlayerState>) -> Result<(), String> {
     player_state
         .0
         .lock()
@@ -219,13 +178,11 @@ fn main() {
             refresh_token,
             check_config,
             get_client_id,
-            player_play_tracks,
             player_play_track,
             player_pause,
             player_resume,
             player_seek,
             player_set_volume,
-            player_next_track,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run app");
