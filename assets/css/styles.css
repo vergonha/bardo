@@ -1,12 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap');
-
 * {
   font-family: 'Inter', sans-serif;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
-
 body {
   background-color: var(--bg);
   height: 100vh;
@@ -14,19 +12,16 @@ body {
   justify-content: center;
   align-items: center;
 }
-
 .login-wrapper {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
 }
-
 .login-card {
   display: flex;
   border: 1px solid var(--border);
 }
-
 .login-cover {
   width: 300px;
   height: 380px;
@@ -35,7 +30,6 @@ body {
   filter: grayscale(50%);
   border-right: 1px solid var(--border);
 }
-
 .login-info {
   width: 260px;
   height: 380px;
@@ -45,14 +39,12 @@ body {
   justify-content: space-between;
   padding: 32px 28px;
 }
-
 .login-heading h1 {
   font-size: 28px;
   font-weight: 500;
   color: var(--text);
   letter-spacing: 0.08em;
 }
-
 .login-heading p {
   font-size: 11px;
   color: var(--text-muted);
@@ -60,7 +52,6 @@ body {
   font-weight: 300;
   letter-spacing: 0.04em;
 }
-
 .login-btn {
   display: flex;
   align-items: center;
@@ -73,17 +64,14 @@ body {
   font-weight: 500;
   letter-spacing: 0.06em;
 }
-
 .login-btn:hover {
   border-color: var(--accent);
   background-color: var(--bg-hover);
 }
-
 .login-btn i {
   font-size: 16px;
   color: var(--text-muted);
 }
-
 .login-hint {
   font-size: 10px;
   color: var(--text-muted);

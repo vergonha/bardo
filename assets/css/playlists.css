@@ -10,7 +10,6 @@ aside {
   display: flex;
   flex-direction: column;
 }
-
 .project-title {
   display: flex;
   align-items: center;
@@ -19,29 +18,24 @@ aside {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-
 .project-title h1 {
   font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.1em;
   color: var(--text);
 }
-
 .project-title i {
   font-size: 16px;
   color: var(--text-muted);
 }
-
 .playlists {
   overflow-y: scroll;
   flex: 1;
   padding: 8px 0;
 }
-
 .playlists ul {
   list-style: none;
 }
-
 .playlists li {
   color: var(--text-muted);
   font-size: 12px;
@@ -51,7 +45,6 @@ aside {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .playlists li:hover {
   color: var(--text);
   background-color: var(--bg-hover);

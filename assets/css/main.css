@@ -1,12 +1,10 @@
 body {
     background-color: #1d1d1d;
 }
-
 body a {
     text-decoration: none;
     color: white;
 }
-
 main {
     position: fixed;
     margin-left: 300px;
@@ -15,39 +13,31 @@ main {
     color: white;
     padding: 20px;
 }
-
 .playlist {
     display: flex;
     width: 70%;
 }
-
 .playlist-title {
     margin: 30px;
 }
-
 .playlist-description {
     font-weight: 200;
     font-size: 15px;
 }
-
 .playlist-image img {
     width: 120px;
 }
-
 .playlist-tracks {
     margin-top: 20px;
     list-style: none;
 }
-
 .playlist-tracks li {
     cursor: pointer;
     margin: 5px;
 }
-
 body {
     background-color: #1d1d1d
 }
-
 main {
     position: fixed;
     margin-left: 300px;
@@ -57,12 +47,10 @@ main {
     color: white;
     padding: 20px;
 }
-
 .playlist {
     display: flex;
     width: 70%;
 }
-
 .play-button {
     font-size: 35px;
     align-self: center;
@@ -70,31 +58,25 @@ main {
     padding: 20px;
     color: gray;
 }
-
 .play-button:hover {
     color: white;
     transition: .2s;
 }
-
 .playlist-title {
     margin: 10px;
     width: 70%;
 }
-
 .playlist-description {
     font-weight: 200;
     font-size: 15px;
 }
-
 .playlist-image img {
     width: 120px;
 }
-
 .playlist-tracks {
     margin-top: 20px;
     list-style: none;
 }
-
 .playlist-tracks li {
     cursor: pointer;
     padding: 10px;
@@ -103,31 +85,25 @@ main {
     display: flex;
     align-items: center;
 }
-
 .playlist-tracks li:hover {
     background-color: #3d3d3d;
     border-radius: 10px;
     transition: .2s;
 }
-
 .playlist-tracks p {
     font-size: 12px;
     width: 20%;
 }
-
 .playlist-tracks li img {
     width: 50px;
     border-radius: 10px;
 }
-
 .playlist-tracks .track li {
     width: 100%;
 }
-
 .playlist-tracks .track {
     display: flex;
 }
-
 .playlist-tracks .track i{
     cursor: pointer;
     color: gray;
@@ -135,26 +111,20 @@ main {
     align-self: center;
     margin: 5px;
 }
-
 .playlist-tracks .track i:hover{
     color: white;
     transition: .2s;
 }
-
-
 ::-webkit-scrollbar {
     width: 10px;
 }
-
 ::-webkit-scrollbar-track {
     background: #2d2d2d;
 }
-
 ::-webkit-scrollbar-thumb {
     background: #3d3d3d;
     border-radius: 10px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
     background: #6E6E6E;
 }

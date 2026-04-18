@@ -1,44 +1,35 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 mod player;
-
 use player::LibrespotPlayer;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, State};
-
 #[derive(Default)]
 pub struct SpotifyState {
     pub access_token: Mutex<Option<String>>,
 }
-
 pub struct PlayerState(pub Mutex<Option<LibrespotPlayer>>);
-
 #[derive(serde::Deserialize)]
 struct AppConfig {
     spotify: SpotifyConfig,
 }
-
 #[derive(serde::Deserialize)]
 struct SpotifyConfig {
     client_id: String,
 }
-
 fn config_path() -> PathBuf {
     dirs::config_dir()
         .expect("Couldn't find config folder.")
         .join("bardo")
         .join("bardo.config.toml")
 }
-
 fn load_config() -> Result<AppConfig, String> {
     let path = config_path();
     let content = fs::read_to_string(&path)
         .map_err(|_| format!("bardo.config.toml not found at {}", path.display()))?;
     toml::from_str(&content).map_err(|e| format!("Config parse error: {e}"))
 }
-
 #[tauri::command]
 async fn run_spotify_login(
     state: State<'_, SpotifyState>,
@@ -53,7 +44,6 @@ async fn run_spotify_login(
     eprintln!("[bardo] Login complete, token stored.");
     Ok(token)
 }
-
 #[tauri::command]
 async fn refresh_token(
     state: State<'_, SpotifyState>,
@@ -77,7 +67,6 @@ async fn refresh_token(
     eprintln!("[bardo] refresh_token: new session ready.");
     Ok(token)
 }
-
 #[tauri::command]
 fn get_access_token(state: State<'_, SpotifyState>) -> Result<String, String> {
     state
@@ -87,17 +76,14 @@ fn get_access_token(state: State<'_, SpotifyState>) -> Result<String, String> {
         .clone()
         .ok_or("Not logged in.".into())
 }
-
 #[tauri::command]
 fn check_config() -> Result<(), String> {
     load_config().map(|_| ())
 }
-
 #[tauri::command]
 fn get_client_id() -> Result<String, String> {
     load_config().map(|c| c.spotify.client_id)
 }
-
 #[tauri::command]
 fn player_play_track(
     uri: String,
@@ -112,7 +98,6 @@ fn player_play_track(
         .play_track(uri);
     Ok(())
 }
-
 #[tauri::command]
 fn player_pause(player_state: State<'_, PlayerState>) -> Result<(), String> {
     player_state
@@ -124,7 +109,6 @@ fn player_pause(player_state: State<'_, PlayerState>) -> Result<(), String> {
         .pause();
     Ok(())
 }
-
 #[tauri::command]
 fn player_resume(player_state: State<'_, PlayerState>) -> Result<(), String> {
     player_state
@@ -136,7 +120,6 @@ fn player_resume(player_state: State<'_, PlayerState>) -> Result<(), String> {
         .resume();
     Ok(())
 }
-
 #[tauri::command]
 fn player_seek(
     position_ms: u32,
@@ -151,7 +134,6 @@ fn player_seek(
         .seek(position_ms);
     Ok(())
 }
-
 #[tauri::command]
 fn player_set_volume(
     volume: f64,
@@ -166,7 +148,6 @@ fn player_set_volume(
         .set_volume(volume);
     Ok(())
 }
-
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

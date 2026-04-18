@@ -64,7 +64,6 @@ function setPlayingUI(playing: boolean) {
   playIcon.style.display = playing ? "none" : "";
 }
 
-// ─── Auth / API ──────────────────────────────────────────────────────────────
 
 async function getToken(): Promise<string> {
   try {
@@ -87,14 +86,13 @@ async function fetchApi(endpoint: string) {
   return response.json();
 }
 
-// ─── Queue Management ────────────────────────────────────────────────────────
 
 function pushHistory(item: QueueItem) {
   history.push(item);
   if (history.length > MAX_HISTORY) history.shift();
 }
 
-/** Internal: update state and invoke Rust to play one track. */
+
 function startTrack(item: QueueItem) {
   if (currentTrack) pushHistory(currentTrack);
   currentTrack = item;
@@ -104,22 +102,16 @@ function startTrack(item: QueueItem) {
   renderQueue();
 }
 
-/**
- * Play a playlist starting at startIndex.
- * Queues all remaining tracks after startIndex.
- */
+
 export function playPlaylist(tracks: QueueItem[], startIndex = 0) {
   queue = tracks.slice(startIndex + 1);
   startTrack(tracks[startIndex]);
 }
 
-/**
- * Play a single search result track.
- * Clears the queue entirely.
- */
+
 export function playSearchTrack(uri: string) {
   if (currentTrack) pushHistory(currentTrack);
-  // Metadata will arrive via track_changed; set null until then.
+  
   currentTrack = null;
   queue = [];
   resetDurationValues();
@@ -128,7 +120,7 @@ export function playSearchTrack(uri: string) {
   renderQueue();
 }
 
-/** Advance to the next item in the queue. */
+
 function advanceQueue() {
   if (queue.length === 0) {
     setPlayingUI(false);
@@ -158,7 +150,6 @@ function reorderQueue(from: number, to: number) {
   renderQueue();
 }
 
-// Call once at startup, outside renderQueue
 function initQueueDragListeners() {
   const list = document.getElementById("queue-list")!;
 
@@ -178,7 +169,7 @@ function initQueueDragListeners() {
   });
 
   list.addEventListener("dragleave", (e) => {
-    // Only clear highlights when leaving the list entirely
+    
     if (!list.contains(e.relatedTarget as Node)) {
       document
         .querySelectorAll(".queue-item")
@@ -209,7 +200,6 @@ function initQueueDragListeners() {
   });
 }
 
-// ─── Queue UI ────────────────────────────────────────────────────────────────
 
 function renderQueue() {
   const list = document.getElementById("queue-list")!;
@@ -239,7 +229,7 @@ function renderQueue() {
     const li = document.createElement("li");
     li.classList.add("queue-item");
     li.draggable = true;
-    li.dataset.index = String(index); // used by container drop listener
+    li.dataset.index = String(index); 
 
     li.innerHTML = `
       <i class="fa-solid fa-grip-vertical queue-drag-handle"></i>
@@ -263,7 +253,7 @@ function renderQueue() {
       e.dataTransfer!.effectAllowed = "move";
       e.dataTransfer!.setData("text/plain", String(index));
       console.log(`[queue] dragstart index=${index} name="${item.name}"`);
-      // Defer adding class so the drag ghost renders normally
+      
       requestAnimationFrame(() => li.classList.add("dragging"));
     });
 
@@ -292,7 +282,6 @@ function toggleQueuePanel() {
     .classList.toggle("active", queueVisible);
 }
 
-// ─── Playlist ────────────────────────────────────────────────────────────────
 
 function extractTracksFromPlaylist(tracks: any[]): any[] {
   const infos: any[] = [];
@@ -345,7 +334,7 @@ export function showPlaylist(id: string) {
     playlistTitle.innerHTML = playlist.name;
     playlistDescription.innerHTML = playlist.description;
 
-    // Build typed QueueItem array once for reuse
+    
     const queueItems: QueueItem[] = playlist.tracks.map((t: any) => ({
       uri: t.uri,
       name: t.name,
@@ -379,19 +368,18 @@ export function showPlaylist(id: string) {
       };
 
       li.append(image, name, artists, duration);
-      // Click on track: play from that index, queue the rest
+      
       li.onclick = () => playPlaylist(queueItems, index);
 
       trackDiv.append(li, add);
       playlistUL.appendChild(trackDiv);
     });
 
-    // Play button: queue entire playlist from the start
+    
     playButton.onclick = () => playPlaylist(queueItems, 0);
   });
 }
 
-// ─── Search ──────────────────────────────────────────────────────────────────
 
 async function loadPlaylists() {
   const data = await fetchApi("me/playlists?limit=50");
@@ -438,7 +426,7 @@ function handleSearchTracks(tracks: any) {
     artists.textContent = track.artists.map((a: any) => a.name).join(", ");
 
     div.append(icon, name, artists);
-    // Search tracks clear the queue
+    
     div.onclick = () => playSearchTrack(track.uri);
     tracksDiv.appendChild(div);
   });
@@ -469,7 +457,6 @@ function handleSearchPlaylists(playlists: any) {
   });
 }
 
-// ─── Rust Events ─────────────────────────────────────────────────────────────
 
 listen<TrackInfo>("track_changed", ({ payload }) => {
   document.querySelector(".track-title")!.innerHTML = payload.name;
@@ -483,7 +470,7 @@ listen<TrackInfo>("track_changed", ({ payload }) => {
   resetDurationValues();
   setPlayingUI(true);
 
-  // For search results we have no QueueItem yet — build one from Rust metadata.
+  
   if (!currentTrack) {
     currentTrack = {
       uri: payload.uri,
@@ -511,7 +498,6 @@ listen("player_stopped", () => {
   resetDurationValues();
 });
 
-// Rust signals end-of-track; TS decides what to do next.
 listen("track_ended", () => {
   if (queue.length > 0) {
     advanceQueue();
@@ -521,7 +507,6 @@ listen("track_ended", () => {
   }
 });
 
-// ─── Controls ────────────────────────────────────────────────────────────────
 
 async function togglePlay() {
   if (isPlaying) {
@@ -538,7 +523,6 @@ document.getElementById("queue-toggle")!.onclick = toggleQueuePanel;
 
 document.getElementById("nextTrack")!.onclick = () => advanceQueue();
 
-// Previous always restarts the current track.
 document.getElementById("previousTrack")!.onclick = async () => {
   await invoke("player_seek", { positionMs: 0 });
   resetDurationValues();
