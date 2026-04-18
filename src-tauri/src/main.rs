@@ -57,6 +57,8 @@ async fn run_spotify_login(
     Ok(token)
 }
 
+/// Called on app start — if a player is already running this is a no-op,
+/// otherwise it re-runs the full OAuth login.
 #[tauri::command]
 async fn refresh_token(
     state: State<'_, SpotifyState>,
@@ -65,6 +67,7 @@ async fn refresh_token(
 ) -> Result<String, String> {
     eprintln!("[bardo] refresh_token called");
 
+    // If we already have a live token + player, just return the token
     {
         let token_guard = state.access_token.lock().unwrap();
         let player_guard = player_state.0.lock().unwrap();
@@ -74,6 +77,7 @@ async fn refresh_token(
         }
     }
 
+    // No live session — re-run full OAuth
     eprintln!("[bardo] No live session, starting fresh OAuth...");
     let p = LibrespotPlayer::new(app).await?;
     let token = p.access_token.clone();
@@ -102,6 +106,7 @@ fn check_config() -> Result<(), String> {
     load_config().map(|_| ())
 }
 
+/// Still exposed in case the frontend needs to build the auth URL manually.
 #[tauri::command]
 fn get_client_id() -> Result<String, String> {
     load_config().map(|c| c.spotify.client_id)

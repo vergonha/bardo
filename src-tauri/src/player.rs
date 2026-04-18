@@ -397,7 +397,6 @@ impl LibrespotPlayer {
             drop(q);
             eprintln!("[bardo] play_tracks: loading {first}");
             load_uri(&self.player, &first);
-
             
         }
     }

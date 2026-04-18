@@ -1,8 +1,17 @@
-/// <reference types="@types/spotify-web-playback-sdk" />
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
-let deviceId: string | null = null;
+interface TrackInfo {
+  name: string;
+  artists: string;
+  album: string;
+  image_url: string;
+  duration_ms: number;
+  uri: string;
+}
 
+let currentDurationMs = 0;
+let isPlaying = false;
 
 function millisToMinutesAndSeconds(millis: number): string {
   const minutes = Math.floor(millis / 60000);
@@ -10,12 +19,27 @@ function millisToMinutesAndSeconds(millis: number): string {
   return minutes + ":" + (Number(seconds) < 10 ? "0" : "") + seconds;
 }
 
-function ctx() {
-  new AudioContext().resume();
+function debounce<T extends (...args: any[]) => void>(callback: T, wait: number) {
+  let timeout: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => callback(...args), wait);
+  };
 }
 
-function setUpDevice(player: Spotify.Player) {
-  player.activateElement();
+function resetDurationValues() {
+  const seek = document.querySelector<HTMLInputElement>("#seek")!;
+  const currentTime = document.querySelector(".track-controller")!.firstElementChild!;
+  currentTime.innerHTML = "0:00";
+  seek.value = "0";
+}
+
+function setPlayingUI(playing: boolean) {
+  isPlaying = playing;
+  const pauseIcon = document.querySelector<HTMLElement>(".fa-solid.fa-pause")!;
+  const playIcon = document.querySelector<HTMLElement>(".fa-solid.fa-play")!;
+  pauseIcon.style.display = playing ? "" : "none";
+  playIcon.style.display = playing ? "none" : "";
 }
 
 async function getToken(): Promise<string> {
@@ -48,6 +72,26 @@ async function addToQueue(uri: string) {
   });
 }
 
+export async function playTrack(uri: string | string[]) {
+  resetDurationValues();
+  setPlayingUI(true);
+  if (Array.isArray(uri)) {
+    await invoke("player_play_tracks", { uris: uri });
+  } else {
+    await invoke("player_play_track", { uri });
+  }
+}
+
+async function togglePlay() {
+  if (isPlaying) {
+    await invoke("player_pause");
+    setPlayingUI(false);
+  } else {
+    await invoke("player_resume");
+    setPlayingUI(true);
+  }
+}
+
 function extractTracksFromPlaylist(tracks: any[]) {
   const infos: any[] = [];
   tracks.forEach((track) => {
@@ -68,48 +112,6 @@ function extractTracksFromPlaylist(tracks: any[]) {
   return infos;
 }
 
-function resetDurationValues() {
-  const seek = document.querySelector<HTMLInputElement>("#seek")!;
-  const currentTime =
-    document.querySelector(".track-controller")!.firstElementChild!;
-  currentTime.innerHTML = "0:00";
-  seek.value = "0";
-}
-
-function changeMusicDuration(uri: string) {
-  const trackTime = document.querySelector<HTMLElement>(".track-time")!;
-  fetchApi("tracks/" + uri.split(":")[2]).then((res) => {
-    trackTime.innerHTML = millisToMinutesAndSeconds(res.duration_ms);
-  });
-}
-
-async function playTrack(uri: string | string[]) {
-  ctx();
-  resetDurationValues();
-
-  document.getElementsByClassName(
-    "fa-solid fa-pause"
-  )[0]!.removeAttribute("style");
-  (
-    document.getElementsByClassName("fa-solid fa-play")[0] as HTMLElement
-  ).style.display = "none";
-
-  const token = await getToken();
-  fetch(
-    "https://api.spotify.com/v1/me/player/play?device_id=" + deviceId,
-    {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        uris: Array.isArray(uri) ? uri : [uri],
-      }),
-    }
-  );
-}
-
 async function getPlaylist(id: string) {
   const playlist = await fetchApi(`playlists/${id}`);
   return {
@@ -122,14 +124,10 @@ async function getPlaylist(id: string) {
 }
 
 export function showPlaylist(id: string) {
-  ctx();
-
-  const playlistImage =
-    document.querySelector<HTMLImageElement>(".playlist-image-object")!;
+  const playlistImage = document.querySelector<HTMLImageElement>(".playlist-image-object")!;
   const playlistTitle = document.querySelector(".playlist-main-title")!;
   const playlistDescription = document.querySelector(".playlist-description")!;
-  const playlistUL =
-    document.querySelector<HTMLUListElement>(".playlist-tracks")!;
+  const playlistUL = document.querySelector<HTMLUListElement>(".playlist-tracks")!;
   const playButton = document.querySelector<HTMLElement>(".play-button")!;
 
   playButton.style.display = "inline-block";
@@ -140,16 +138,13 @@ export function showPlaylist(id: string) {
     playlistTitle.innerHTML = playlist.name;
     playlistDescription.innerHTML = playlist.description;
 
-    const uris: string[] = [];
+    const uris = playlist.tracks.map((t: any) => t.uri);
 
-    playlist.tracks.forEach((track: any) => {
-      uris.push(track.uri);
-
+    playlist.tracks.forEach((track: any, index: number) => {
       const trackDiv = document.createElement("div");
       trackDiv.classList.add("track");
 
       const li = document.createElement("li");
-
       const image = document.createElement("img");
       image.src = track.image;
 
@@ -167,8 +162,7 @@ export function showPlaylist(id: string) {
       add.onclick = () => addToQueue(track.uri);
 
       li.append(image, name, artists, duration);
-      li.onclick = () => playTrack(track.uri);
-
+      li.onclick = () => playTrack(uris.slice(index));
       trackDiv.append(li, add);
       playlistUL.appendChild(trackDiv);
     });
@@ -177,31 +171,21 @@ export function showPlaylist(id: string) {
   });
 }
 
-function changeMusic(track: Spotify.Track) {
-  document.querySelector(".track-title")!.innerHTML = track.name;
-  document.querySelector(".artists-title")!.innerHTML = track.artists
-    .map((a) => a.name)
-    .join(", ");
-  document.querySelector(".album-title")!.innerHTML = track.album.name;
-  document.querySelector<HTMLImageElement>(".track-image-object")!.src =
-    track.album.images[0].url;
-}
-
-function debounce<T extends (...args: any[]) => void>(
-  callback: T,
-  wait: number
-) {
-  let timeout: ReturnType<typeof setTimeout>;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => callback(...args), wait);
-  };
+async function loadPlaylists() {
+  const data = await fetchApi("me/playlists?limit=50");
+  const ul = document.querySelector<HTMLUListElement>("#playlist-list")!;
+  ul.innerHTML = "";
+  data.items.forEach((playlist: any) => {
+    const li = document.createElement("li");
+    li.textContent = playlist.name;
+    li.onclick = () => showPlaylist(playlist.id);
+    ul.appendChild(li);
+  });
 }
 
 function handleSearchTracks(tracks: any) {
   const tracksDiv = document.querySelector<HTMLElement>(".tracks-results")!;
   tracksDiv.innerHTML = "";
-
   tracks.items.forEach((track: any) => {
     const div = document.createElement("div");
     div.classList.add("track-result");
@@ -222,13 +206,10 @@ function handleSearchTracks(tracks: any) {
 }
 
 function handleSearchPlaylists(playlists: any) {
-  const playlistsDiv =
-    document.querySelector<HTMLElement>(".playlists-results")!;
+  const playlistsDiv = document.querySelector<HTMLElement>(".playlists-results")!;
   playlistsDiv.innerHTML = "";
-
   playlists.items.forEach((item: any) => {
-
-    if (!item) { return };
+    if (!item) return;
 
     const div = document.createElement("div");
     div.classList.add("playlist-result");
@@ -248,18 +229,30 @@ function handleSearchPlaylists(playlists: any) {
   });
 }
 
-async function carregarPlaylists() {
-  const data = await fetchApi("me/playlists?limit=50");
-  const ul = document.querySelector<HTMLUListElement>("#playlist-list")!;
-  ul.innerHTML = "";
+listen<TrackInfo>("track_changed", ({ payload }) => {
+  document.querySelector(".track-title")!.innerHTML = payload.name;
+  document.querySelector(".artists-title")!.innerHTML = payload.artists;
+  document.querySelector(".album-title")!.innerHTML = payload.album;
+  document.querySelector<HTMLImageElement>(".track-image-object")!.src = payload.image_url;
+  document.querySelector<HTMLElement>(".track-time")!.innerHTML =
+    millisToMinutesAndSeconds(payload.duration_ms);
+  currentDurationMs = payload.duration_ms;
+  resetDurationValues();
+  setPlayingUI(true);
+});
 
-  data.items.forEach((playlist: any) => {
-    const li = document.createElement("li");
-    li.textContent = playlist.name;
-    li.onclick = () => showPlaylist(playlist.id);
-    ul.appendChild(li);
-  });
-}
+listen<number>("position_changed", ({ payload }) => {
+  const seek = document.querySelector<HTMLInputElement>("#seek")!;
+  const timeEl = document.querySelector(".track-controller")!.firstElementChild!;
+  if (currentDurationMs > 0) {
+    seek.value = String((payload / currentDurationMs) * 100);
+  }
+  timeEl.innerHTML = millisToMinutesAndSeconds(payload);
+});
+
+listen("player_paused", () => setPlayingUI(false));
+listen("player_stopped", () => { setPlayingUI(false); resetDurationValues(); });
+listen("track_ended", () => { setPlayingUI(false); resetDurationValues(); });
 
 const search = document.querySelector<HTMLInputElement>("#search")!;
 search.addEventListener(
@@ -272,116 +265,41 @@ search.addEventListener(
       limit: "4",
     });
     fetchApi("search?" + body).then((res) => {
-      console.log(res);
       handleSearchPlaylists(res.playlists);
       handleSearchTracks(res.tracks);
-
     });
   }, 1000)
 );
 
-window.onSpotifyWebPlaybackSDKReady = async () => {
-  new AudioContext().resume();
-  const token = await getToken();
+document.getElementById("toggle")!.onclick = togglePlay;
 
-  const player = new Spotify.Player({
-    name: "Bardo",
-    getOAuthToken: (callback) => callback(token),
-    volume: 1.0,
-  });
-
-  player.connect().then((success) => {
-    if (success) {
-      setUpDevice(player);
-      console.log("Web Playback SDK conectado!");
-    }
-  });
-
-  player.addListener("ready", ({ device_id }) => {
-    deviceId = device_id;
-  });
-
-  let progressInterval: ReturnType<typeof setInterval> | null = null;
-
-  player.addListener("player_state_changed", (state) => {
-    if (!state) return;
-
-    const { track_window: { current_track } } = state;
-    changeMusic(current_track);
-    changeMusicDuration(current_track.uri);
-
-    if (progressInterval) clearInterval(progressInterval);
-
-    progressInterval = setInterval(async () => {
-      const currentState = await player.getCurrentState();
-      if (!currentState || currentState.paused) return;
-
-      const seek = document.querySelector<HTMLInputElement>("#seek")!;
-      const timeEl =
-        document.querySelector(".track-controller")!.firstElementChild!;
-
-      seek.value = String(
-        (currentState.position * 100) /
-        currentState.track_window.current_track.duration_ms
-      );
-      timeEl.innerHTML = millisToMinutesAndSeconds(currentState.position);
-    }, 2000);
-  });
-
-  const pauseIcon = document.getElementsByClassName(
-    "fa-solid fa-pause"
-  )[0] as HTMLElement;
-  const playIcon = document.getElementsByClassName(
-    "fa-solid fa-play"
-  )[0] as HTMLElement;
-
-  document.getElementById("toggle")!.onclick = async () => {
-    const state = await player.getCurrentState();
-    if (!state) return;
-
-    await player.togglePlay();
-
-    if (state.paused) {
-      pauseIcon.style.display = "initial";
-      playIcon.style.display = "none";
-    } else {
-      pauseIcon.style.display = "none";
-      playIcon.style.display = "initial";
-    }
-  };
-
-  document.getElementById("nextTrack")!.onclick = () => {
-    resetDurationValues();
-    player.nextTrack();
-  };
-
-  document.getElementById("previousTrack")!.onclick = () => {
-    resetDurationValues();
-    player.previousTrack();
-  };
-
-  const volume = document.querySelector<HTMLInputElement>("#volume-control")!;
-  volume.addEventListener("change", (e) => {
-    const el = e.currentTarget as HTMLInputElement;
-    el.style.backgroundSize = `${el.value}% 100%`;
-    player.setVolume(Number(el.value) / 100);
-  });
-
-  const seekEl = document.querySelector<HTMLInputElement>("#seek")!;
-  const timeEl =
-    document.querySelector(".track-controller")!.firstElementChild!;
-
-  seekEl.addEventListener("change", async () => {
-    const state = await player.getCurrentState();
-    if (!state) return;
-
-    const duration =
-      (seekEl.valueAsNumber / 100) *
-      state.track_window.current_track.duration_ms;
-
-    timeEl.innerHTML = millisToMinutesAndSeconds(duration);
-    player.seek(duration);
-  });
-
-  carregarPlaylists();
+document.getElementById("nextTrack")!.onclick = () => {
+  invoke("player_next_track");
+  resetDurationValues();
 };
+
+document.getElementById("previousTrack")!.onclick = async () => {
+  await invoke("player_seek", { positionMs: 0 });
+  resetDurationValues();
+};
+
+const volume = document.querySelector<HTMLInputElement>("#volume-control")!;
+volume.addEventListener("change", (e) => {
+  const el = e.currentTarget as HTMLInputElement;
+  el.style.backgroundSize = `${el.value}% 100%`;
+  invoke("player_set_volume", { volume: Number(el.value) / 100 });
+});
+
+const seekEl = document.querySelector<HTMLInputElement>("#seek")!;
+const seekTimeEl = document.querySelector(".track-controller")!.firstElementChild!;
+seekEl.addEventListener("change", () => {
+  const position = (seekEl.valueAsNumber / 100) * currentDurationMs;
+  seekTimeEl.innerHTML = millisToMinutesAndSeconds(position);
+  invoke("player_seek", { positionMs: Math.floor(position) });
+});
+
+loadPlaylists();
+
+const initialVolume = 50;
+volume.style.backgroundSize = `${initialVolume}% 100%`;
+invoke("player_set_volume", { volume: initialVolume / 100 });
