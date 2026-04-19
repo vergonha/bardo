@@ -26,6 +26,129 @@ let queue: QueueItem[] = [];
 let history: QueueItem[] = [];
 let queueVisible = false;
 let dragSrcIndex: number | null = null;
+let playlistPlayBtn: HTMLElement | null = null;
+
+
+function showToast(msg: string, isError = false, duration = 2500) {
+  let toast = document.getElementById("ux-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "ux-toast";
+    toast.className = "toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.toggle("toast-error", isError);
+  toast.classList.add("toast-visible");
+  clearTimeout((toast as any)._timer);
+  (toast as any)._timer = setTimeout(
+    () => toast!.classList.remove("toast-visible"),
+    duration
+  );
+}
+
+function animatePress(el: HTMLElement) {
+  el.classList.remove("btn-pressed");
+  void (el as HTMLElement).offsetWidth;
+  el.classList.add("btn-pressed");
+  el.addEventListener("animationend", () => el.classList.remove("btn-pressed"), {
+    once: true,
+  });
+}
+
+function lockButton(btn: HTMLButtonElement, ms = 700) {
+  btn.disabled = true;
+  setTimeout(() => (btn.disabled = false), ms);
+}
+
+function setPlaylistPlayBtnLoading(loading: boolean) {
+  if (!playlistPlayBtn) return;
+  const icon = playlistPlayBtn.querySelector("i")!;
+  if (loading) {
+    icon.className = "fa-solid fa-spinner";
+    (playlistPlayBtn as HTMLAnchorElement).style.pointerEvents = "none";
+    (playlistPlayBtn as HTMLAnchorElement).style.opacity = "0.5";
+  } else {
+    icon.className = "fa-solid fa-circle-play";
+    (playlistPlayBtn as HTMLAnchorElement).style.pointerEvents = "";
+    (playlistPlayBtn as HTMLAnchorElement).style.opacity = "";
+  }
+}
+
+
+function renderPlaylistHeaderSkeleton() {
+  const playlistImage =
+    document.querySelector<HTMLImageElement>(".playlist-image-object")!;
+  const playlistTitle = document.querySelector(".playlist-main-title")!;
+  const playlistDescription = document.querySelector(".playlist-description")!;
+  const playButton = document.querySelector<HTMLElement>(".play-button")!;
+
+  playButton.style.display = "none";
+  playlistImage.src = "";
+  playlistImage.classList.add("skeleton");
+
+  playlistTitle.innerHTML = `<span class="skeleton skeleton-inline" style="width:55%;height:22px;"></span>`;
+  playlistDescription.innerHTML = `
+    <span class="skeleton skeleton-inline" style="width:82%;height:10px;display:block;margin-bottom:5px;"></span>
+    <span class="skeleton skeleton-inline" style="width:60%;height:10px;display:block;"></span>
+  `;
+}
+
+function clearPlaylistHeaderSkeleton() {
+  document
+    .querySelector<HTMLImageElement>(".playlist-image-object")!
+    .classList.remove("skeleton");
+}
+
+function renderTrackSkeletons(container: Element, count = 7) {
+  container.innerHTML = "";
+  for (let i = 0; i < count; i++) {
+    const div = document.createElement("div");
+    div.className = "track-skeleton";
+    div.innerHTML = `
+      <div class="skeleton track-sk-img"></div>
+      <div class="track-sk-info">
+        <div class="skeleton track-sk-name" style="width:${45 + Math.random() * 30}%"></div>
+        <div class="skeleton track-sk-artist" style="width:${25 + Math.random() * 20}%"></div>
+      </div>
+      <div class="skeleton track-sk-duration"></div>
+    `;
+    container.appendChild(div);
+  }
+}
+
+function renderSearchSkeletons() {
+  const tracksDiv =
+    document.querySelector<HTMLElement>(".tracks-results")!;
+  tracksDiv.innerHTML = "";
+  for (let i = 0; i < 4; i++) {
+    const div = document.createElement("div");
+    div.className = "search-track-skeleton";
+    div.innerHTML = `
+      <div class="skeleton search-sk-img"></div>
+      <div class="search-sk-info">
+        <div class="skeleton search-sk-name" style="width:${50 + Math.random() * 25}%"></div>
+        <div class="skeleton search-sk-artist" style="width:${30 + Math.random() * 20}%"></div>
+      </div>
+    `;
+    tracksDiv.appendChild(div);
+  }
+
+  const playlistsDiv =
+    document.querySelector<HTMLElement>(".playlists-results")!;
+  playlistsDiv.innerHTML = "";
+  for (let i = 0; i < 4; i++) {
+    const div = document.createElement("div");
+    div.className = "pl-skeleton-card";
+    div.innerHTML = `
+      <div class="skeleton pl-sk-img"></div>
+      <div class="skeleton pl-sk-name" style="width:${55 + Math.random() * 30}%"></div>
+      <div class="skeleton pl-sk-sub" style="width:${35 + Math.random() * 20}%"></div>
+    `;
+    playlistsDiv.appendChild(div);
+  }
+}
+
 
 function millisToMinutesAndSeconds(millis: number): string {
   const minutes = Math.floor(millis / 60000);
@@ -50,16 +173,15 @@ function resetDurationValues() {
     document.querySelector(".track-controller")!.firstElementChild!;
   currentTime.innerHTML = "0:00";
   seek.value = "0";
+  seek.style.backgroundSize = "0% 100%";
 }
 
 function setPlayingUI(playing: boolean) {
   isPlaying = playing;
-  const pauseIcon = document.querySelector<HTMLElement>(
-    ".fa-solid.fa-pause"
-  )!;
-  const playIcon = document.querySelector<HTMLElement>(
-    ".fa-solid.fa-play"
-  )!;
+  const pauseIcon =
+    document.querySelector<HTMLElement>(".fa-solid.fa-pause")!;
+  const playIcon =
+    document.querySelector<HTMLElement>(".fa-solid.fa-play")!;
   pauseIcon.style.display = playing ? "" : "none";
   playIcon.style.display = playing ? "none" : "";
 }
@@ -83,6 +205,7 @@ async function fetchApi(endpoint: string) {
   const response = await fetch(`https://api.spotify.com/v1/${endpoint}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  if (!response.ok) throw new Error(`API error ${response.status}`);
   return response.json();
 }
 
@@ -91,7 +214,6 @@ function pushHistory(item: QueueItem) {
   history.push(item);
   if (history.length > MAX_HISTORY) history.shift();
 }
-
 
 function startTrack(item: QueueItem) {
   if (currentTrack) pushHistory(currentTrack);
@@ -102,16 +224,14 @@ function startTrack(item: QueueItem) {
   renderQueue();
 }
 
-
 export function playPlaylist(tracks: QueueItem[], startIndex = 0) {
   queue = tracks.slice(startIndex + 1);
   startTrack(tracks[startIndex]);
+  setPlaylistPlayBtnLoading(false);
 }
-
 
 export function playSearchTrack(uri: string) {
   if (currentTrack) pushHistory(currentTrack);
-  
   currentTrack = null;
   queue = [];
   resetDurationValues();
@@ -119,7 +239,6 @@ export function playSearchTrack(uri: string) {
   invoke("player_play_track", { uri });
   renderQueue();
 }
-
 
 function advanceQueue() {
   if (queue.length === 0) {
@@ -130,11 +249,19 @@ function advanceQueue() {
   startTrack(queue.shift()!);
 }
 
-
-
-function addToQueue(item: QueueItem) {
+function addToQueue(item: QueueItem, triggerEl?: HTMLElement) {
   queue.push(item);
   renderQueue();
+
+  if (triggerEl) {
+    const original = triggerEl.className;
+    triggerEl.className = "fa-solid fa-check queue-add-success";
+    triggerEl.style.pointerEvents = "none";
+    setTimeout(() => {
+      triggerEl.className = original;
+      triggerEl.style.pointerEvents = "";
+    }, 900);
+  }
 }
 
 function removeFromQueue(index: number) {
@@ -143,12 +270,11 @@ function removeFromQueue(index: number) {
 }
 
 function reorderQueue(from: number, to: number) {
-  console.log(`[queue] reorder from=${from} to=${to} before=`, [...queue.map(q => q.name)]);
   const [item] = queue.splice(from, 1);
   queue.splice(to, 0, item);
-  console.log(`[queue] reorder after=`, [...queue.map(q => q.name)]);
   renderQueue();
 }
+
 
 function initQueueDragListeners() {
   const list = document.getElementById("queue-list")!;
@@ -156,20 +282,16 @@ function initQueueDragListeners() {
   list.addEventListener("dragover", (e) => {
     e.preventDefault();
     e.dataTransfer!.dropEffect = "move";
-
     const target = (e.target as HTMLElement).closest<HTMLElement>(
       "li.queue-item:not(.queue-item--current)"
     );
     document
       .querySelectorAll(".queue-item")
       .forEach((el) => el.classList.remove("drag-over"));
-    if (target) {
-      target.classList.add("drag-over");
-    }
+    if (target) target.classList.add("drag-over");
   });
 
   list.addEventListener("dragleave", (e) => {
-    
     if (!list.contains(e.relatedTarget as Node)) {
       document
         .querySelectorAll(".queue-item")
@@ -182,24 +304,16 @@ function initQueueDragListeners() {
     document
       .querySelectorAll(".queue-item")
       .forEach((el) => el.classList.remove("drag-over"));
-
     const target = (e.target as HTMLElement).closest<HTMLElement>(
       "li.queue-item:not(.queue-item--current)"
     );
-    if (!target) {
-      console.log("[queue] drop: no valid target found");
-      return;
-    }
-
+    if (!target) return;
     const toIndex = parseInt(target.dataset.index!);
-    console.log(`[queue] drop src=${dragSrcIndex} dst=${toIndex}`);
-
     if (dragSrcIndex !== null && dragSrcIndex !== toIndex) {
       reorderQueue(dragSrcIndex, toIndex);
     }
   });
 }
-
 
 function renderQueue() {
   const list = document.getElementById("queue-list")!;
@@ -229,7 +343,7 @@ function renderQueue() {
     const li = document.createElement("li");
     li.classList.add("queue-item");
     li.draggable = true;
-    li.dataset.index = String(index); 
+    li.dataset.index = String(index);
 
     li.innerHTML = `
       <i class="fa-solid fa-grip-vertical queue-drag-handle"></i>
@@ -252,13 +366,10 @@ function renderQueue() {
       dragSrcIndex = index;
       e.dataTransfer!.effectAllowed = "move";
       e.dataTransfer!.setData("text/plain", String(index));
-      console.log(`[queue] dragstart index=${index} name="${item.name}"`);
-      
       requestAnimationFrame(() => li.classList.add("dragging"));
     });
 
     li.addEventListener("dragend", () => {
-      console.log(`[queue] dragend index=${index} dragSrcIndex=${dragSrcIndex}`);
       li.classList.remove("dragging");
       document
         .querySelectorAll(".queue-item")
@@ -269,6 +380,7 @@ function renderQueue() {
     list.appendChild(li);
   });
 }
+
 function toggleQueuePanel() {
   queueVisible = !queueVisible;
   document.getElementById("search-panel")!.style.display = queueVisible
@@ -296,8 +408,7 @@ function extractTracksFromPlaylist(tracks: any[]): any[] {
         artists: track.track.artists.map((a: any) => a.name).join(", "),
         duration: millisToMinutesAndSeconds(track.track.duration_ms),
       });
-    } catch (error) {
-      console.log(error);
+    } catch {
     }
   });
   return infos;
@@ -315,97 +426,137 @@ async function getPlaylist(id: string) {
 }
 
 export function showPlaylist(id: string) {
-  const playlistImage =
-    document.querySelector<HTMLImageElement>(".playlist-image-object")!;
-  const playlistTitle = document.querySelector(".playlist-main-title")!;
-  const playlistDescription = document.querySelector(
-    ".playlist-description"
-  )!;
-  const playlistUL =
-    document.querySelector<HTMLUListElement>(".playlist-tracks")!;
-  const playButton =
-    document.querySelector<HTMLElement>(".play-button")!;
+  playlistPlayBtn = document.querySelector<HTMLElement>(".play-button")!;
 
-  playButton.style.display = "inline-block";
-  playlistUL.innerHTML = "";
+  renderPlaylistHeaderSkeleton();
+  renderTrackSkeletons(
+    document.querySelector<HTMLUListElement>(".playlist-tracks")!
+  );
+  showToast("dada", false, 10)
 
-  getPlaylist(id).then((playlist) => {
-    playlistImage.src = playlist.icon;
-    playlistTitle.innerHTML = playlist.name;
-    playlistDescription.innerHTML = playlist.description;
+  getPlaylist(id)
+    .then((playlist) => {
+      const playlistImage =
+        document.querySelector<HTMLImageElement>(".playlist-image-object")!;
+      const playlistTitle = document.querySelector(".playlist-main-title")!;
+      const playlistDescription = document.querySelector(
+        ".playlist-description"
+      )!;
+      const playlistUL =
+        document.querySelector<HTMLUListElement>(".playlist-tracks")!;
+      const playButton =
+        document.querySelector<HTMLElement>(".play-button")!;
 
-    
-    const queueItems: QueueItem[] = playlist.tracks.map((t: any) => ({
-      uri: t.uri,
-      name: t.name,
-      artists: t.artists,
-      image: t.image,
-    }));
+      clearPlaylistHeaderSkeleton();
+      playlistImage.src = playlist.icon;
+      playlistTitle.innerHTML = playlist.name;
+      playlistDescription.innerHTML = playlist.description;
+      playButton.style.display = "inline-block";
 
-    playlist.tracks.forEach((track: any, index: number) => {
-      const trackDiv = document.createElement("div");
-      trackDiv.classList.add("track");
+      const icon = playButton.querySelector("i")!;
+      icon.className = "fa-solid fa-circle-play";
+      playButton.style.pointerEvents = "";
+      playButton.style.opacity = "";
 
-      const li = document.createElement("li");
+      const queueItems: QueueItem[] = playlist.tracks.map((t: any) => ({
+        uri: t.uri,
+        name: t.name,
+        artists: t.artists,
+        image: t.image,
+      }));
 
-      const image = document.createElement("img");
-      image.src = track.image;
+      playlistUL.innerHTML = "";
 
-      const name = document.createElement("p");
-      name.textContent = track.name;
+      playlist.tracks.forEach((track: any, index: number) => {
+        const trackDiv = document.createElement("div");
+        trackDiv.classList.add("track");
 
-      const artists = document.createElement("p");
-      artists.textContent = track.artists;
+        const li = document.createElement("li");
 
-      const duration = document.createElement("p");
-      duration.textContent = track.duration;
+        const image = document.createElement("img");
+        image.src = track.image;
 
-      const add = document.createElement("i");
-      add.classList.add("fa-solid", "fa-plus");
-      add.onclick = (e) => {
-        e.stopPropagation();
-        addToQueue(queueItems[index]);
+        const name = document.createElement("p");
+        name.textContent = track.name;
+
+        const artists = document.createElement("p");
+        artists.textContent = track.artists;
+
+        const duration = document.createElement("p");
+        duration.textContent = track.duration;
+
+        const add = document.createElement("i");
+        add.classList.add("fa-solid", "fa-plus");
+        add.onclick = (e) => {
+          e.stopPropagation();
+          addToQueue(queueItems[index], add);
+        };
+
+        li.append(image, name, artists, duration);
+        li.onclick = () => playPlaylist(queueItems, index);
+
+        trackDiv.append(li, add);
+        playlistUL.appendChild(trackDiv);
+      });
+
+      playButton.onclick = () => {
+        setPlaylistPlayBtnLoading(true);
+        playPlaylist(queueItems, 0);
       };
-
-      li.append(image, name, artists, duration);
-      
-      li.onclick = () => playPlaylist(queueItems, index);
-
-      trackDiv.append(li, add);
-      playlistUL.appendChild(trackDiv);
+    })
+    .catch(() => {
+      clearPlaylistHeaderSkeleton();
+      document.querySelector(".playlist-main-title")!.innerHTML =
+        "Failed to load playlist";
+      document.querySelector(".playlist-description")!.innerHTML = "";
+      document.querySelector<HTMLUListElement>(".playlist-tracks")!.innerHTML =
+        "";
+      showToast("Could not load playlist. Try again.", true);
     });
-
-    
-    playButton.onclick = () => playPlaylist(queueItems, 0);
-  });
 }
 
 
 async function loadPlaylists() {
-  const data = await fetchApi("me/playlists?limit=50");
   const ul = document.querySelector<HTMLUListElement>("#playlist-list")!;
   ul.innerHTML = "";
 
-  data.items.forEach((playlist: any) => {
+  for (let i = 0; i < 8; i++) {
     const li = document.createElement("li");
-    li.className = "sidebar-playlist-item";
-
-    const img = document.createElement("img");
-    img.className = "sidebar-playlist-image";
-    img.src = playlist.images?.[0]?.url || "";
-    img.alt = playlist.name;
-
-    const span = document.createElement("span");
-    span.className = "sidebar-playlist-name";
-    span.textContent = playlist.name;
-
-    li.appendChild(img);
-    li.appendChild(span);
-
-    li.onclick = () => showPlaylist(playlist.id);
-
+    li.className = "sidebar-playlist-item sidebar-skeleton-item";
+    li.innerHTML = `
+      <div class="skeleton sidebar-sk-img"></div>
+      <div class="skeleton sidebar-sk-name" style="width:${45 + Math.random() * 35}%"></div>
+    `;
     ul.appendChild(li);
-  });
+  }
+
+  try {
+    const data = await fetchApi("me/playlists?limit=50");
+    ul.innerHTML = "";
+
+    data.items.forEach((playlist: any) => {
+      const li = document.createElement("li");
+      li.className = "sidebar-playlist-item";
+
+      const img = document.createElement("img");
+      img.className = "sidebar-playlist-image";
+      img.src = playlist.images?.[0]?.url || "";
+      img.alt = playlist.name;
+
+      const span = document.createElement("span");
+      span.className = "sidebar-playlist-name";
+      span.textContent = playlist.name;
+
+      li.appendChild(img);
+      li.appendChild(span);
+      li.onclick = () => showPlaylist(playlist.id);
+
+      ul.appendChild(li);
+    });
+  } catch {
+    ul.innerHTML = "";
+    showToast("Could not load playlists.", true);
+  }
 }
 
 function handleSearchTracks(tracks: any) {
@@ -426,7 +577,6 @@ function handleSearchTracks(tracks: any) {
     artists.textContent = track.artists.map((a: any) => a.name).join(", ");
 
     div.append(icon, name, artists);
-    
     div.onclick = () => playSearchTrack(track.uri);
     tracksDiv.appendChild(div);
   });
@@ -457,7 +607,6 @@ function handleSearchPlaylists(playlists: any) {
   });
 }
 
-
 listen<TrackInfo>("track_changed", ({ payload }) => {
   document.querySelector(".track-title")!.innerHTML = payload.name;
   document.querySelector(".artists-title")!.innerHTML = payload.artists;
@@ -469,8 +618,8 @@ listen<TrackInfo>("track_changed", ({ payload }) => {
   currentDurationMs = payload.duration_ms;
   resetDurationValues();
   setPlayingUI(true);
+  setPlaylistPlayBtnLoading(false);
 
-  
   if (!currentTrack) {
     currentTrack = {
       uri: payload.uri,
@@ -486,8 +635,11 @@ listen<number>("position_changed", ({ payload }) => {
   const seek = document.querySelector<HTMLInputElement>("#seek")!;
   const timeEl =
     document.querySelector(".track-controller")!.firstElementChild!;
-  if (currentDurationMs > 0)
-    seek.value = String((payload / currentDurationMs) * 100);
+  if (currentDurationMs > 0) {
+    const pct = (payload / currentDurationMs) * 100;
+    seek.value = String(pct);
+    seek.style.backgroundSize = `${pct}% 100%`;
+  }
   timeEl.innerHTML = millisToMinutesAndSeconds(payload);
 });
 
@@ -507,28 +659,58 @@ listen("track_ended", () => {
   }
 });
 
+const toggleBtn =
+  document.getElementById("toggle") as HTMLButtonElement;
+const nextBtn =
+  document.getElementById("nextTrack") as HTMLButtonElement;
+const prevBtn =
+  document.getElementById("previousTrack") as HTMLButtonElement;
 
 async function togglePlay() {
-  if (isPlaying) {
-    await invoke("player_pause");
-    setPlayingUI(false);
-  } else {
-    await invoke("player_resume");
-    setPlayingUI(true);
+  animatePress(toggleBtn);
+  lockButton(toggleBtn, 600);
+  try {
+    if (isPlaying) {
+      await invoke("player_pause");
+      setPlayingUI(false);
+    } else {
+      await invoke("player_resume");
+      setPlayingUI(true);
+    }
+  } catch {
+    showToast("Playback error. Try again.", true);
+    toggleBtn.disabled = false;
   }
 }
 
-document.getElementById("toggle")!.onclick = togglePlay;
+toggleBtn.onclick = togglePlay;
+
 document.getElementById("queue-toggle")!.onclick = toggleQueuePanel;
 
-document.getElementById("nextTrack")!.onclick = () => advanceQueue();
-
-document.getElementById("previousTrack")!.onclick = async () => {
-  await invoke("player_seek", { positionMs: 0 });
-  resetDurationValues();
+nextBtn.onclick = () => {
+  animatePress(nextBtn);
+  lockButton(nextBtn, 600);
+  advanceQueue();
 };
 
-const volume = document.querySelector<HTMLInputElement>("#volume-control")!;
+prevBtn.onclick = async () => {
+  animatePress(prevBtn);
+  lockButton(prevBtn, 600);
+  try {
+    await invoke("player_seek", { positionMs: 0 });
+    resetDurationValues();
+  } catch {
+    showToast("Seek error. Try again.", true);
+    prevBtn.disabled = false;
+  }
+};
+
+const volume =
+  document.querySelector<HTMLInputElement>("#volume-control")!;
+volume.addEventListener("input", (e) => {
+  const el = e.currentTarget as HTMLInputElement;
+  el.style.backgroundSize = `${el.value}% 100%`;
+});
 volume.addEventListener("change", (e) => {
   const el = e.currentTarget as HTMLInputElement;
   el.style.backgroundSize = `${el.value}% 100%`;
@@ -538,6 +720,13 @@ volume.addEventListener("change", (e) => {
 const seekEl = document.querySelector<HTMLInputElement>("#seek")!;
 const seekTimeEl =
   document.querySelector(".track-controller")!.firstElementChild!;
+
+seekEl.addEventListener("input", () => {
+  seekEl.style.backgroundSize = `${seekEl.valueAsNumber}% 100%`;
+  const position = (seekEl.valueAsNumber / 100) * currentDurationMs;
+  seekTimeEl.innerHTML = millisToMinutesAndSeconds(position);
+});
+
 seekEl.addEventListener("change", () => {
   const position = (seekEl.valueAsNumber / 100) * currentDurationMs;
   seekTimeEl.innerHTML = millisToMinutesAndSeconds(position);
@@ -545,26 +734,49 @@ seekEl.addEventListener("change", () => {
 });
 
 const search = document.querySelector<HTMLInputElement>("#search")!;
-search.addEventListener(
-  "keyup",
-  debounce(() => {
-    if (!search.value) return;
-    const body = new URLSearchParams({
-      q: search.value,
-      type: "track,playlist",
-      limit: "4",
-    });
-    fetchApi("search?" + body).then((res) => {
+let searchPending = false;
+
+const doSearch = debounce(() => {
+  if (!search.value) return;
+  const body = new URLSearchParams({
+    q: search.value,
+    type: "track,playlist",
+    limit: "4",
+  });
+  fetchApi("search?" + body)
+    .then((res) => {
+      searchPending = false;
       handleSearchPlaylists(res.playlists);
       handleSearchTracks(res.tracks);
+    })
+    .catch(() => {
+      searchPending = false;
+      document.querySelector<HTMLElement>(".tracks-results")!.innerHTML = "";
+      document.querySelector<HTMLElement>(".playlists-results")!.innerHTML =
+        "";
+      showToast("Search failed. Try again.", true);
     });
-  }, 1000)
-);
+}, 900);
+
+search.addEventListener("keyup", () => {
+  if (!search.value) {
+    document.querySelector<HTMLElement>(".tracks-results")!.innerHTML = "";
+    document.querySelector<HTMLElement>(".playlists-results")!.innerHTML = "";
+    searchPending = false;
+    return;
+  }
+  if (!searchPending) {
+    searchPending = true;
+    renderSearchSkeletons();
+  }
+  doSearch();
+});
 
 loadPlaylists();
 renderQueue();
-initQueueDragListeners(); 
+initQueueDragListeners();
 
 const initialVolume = 50;
+volume.value = String(initialVolume);
 volume.style.backgroundSize = `${initialVolume}% 100%`;
 invoke("player_set_volume", { volume: initialVolume / 100 });
