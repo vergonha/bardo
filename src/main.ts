@@ -18,12 +18,7 @@ async function initialize() {
     return;
   }
 
-  try {
-    await invoke<string>("refresh_token");
-    navigateTo("dashboard.html");
-  } catch {
-    setStatus("");
-  }
+  setStatus("Ready to login");
 }
 
 async function login() {
