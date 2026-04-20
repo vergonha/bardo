@@ -62,9 +62,6 @@ pub struct LibrespotPlayer {
     pub player: Arc<Player>,
     pub mixer: Arc<SoftMixer>,
     pub spirc: Arc<Spirc>,
-    pub access_token: String,
-    pub refresh_token: String,
-    pub expires_at: Instant,
     inner: Arc<Mutex<PlayerInner>>,
 }
 
@@ -74,9 +71,6 @@ impl LibrespotPlayer {
         player: Arc<Player>,
         mixer: Arc<SoftMixer>,
         spirc: Spirc,
-        access_token: String,
-        refresh_token: String,
-        expires_at: Instant,
         app_handle: AppHandle,
     ) -> Self {
         eprintln!("[bardo] building LibrespotPlayer");
@@ -102,9 +96,6 @@ impl LibrespotPlayer {
             player,
             mixer,
             spirc: Arc::new(spirc),
-            access_token,
-            refresh_token,
-            expires_at,
             inner,
         }
     }
