@@ -16,7 +16,7 @@ use librespot_playback::{
     mixer::{softmixer::SoftMixer, Mixer, MixerConfig},
     player::{Player, PlayerEvent},
 };
-use serde::Serialize;
+use serde::{Serialize};
 use tauri::{AppHandle, Emitter};
 pub const SPOTIFY_CLIENT_ID: &str = "6eb9dc7f1df14d7aa1d9ad394c763799";
 const REDIRECT_URI: &str = "http://127.0.0.1:8888/login";
@@ -28,8 +28,10 @@ const SCOPES: &[&str] = &[
     "user-read-playback-state",
     "user-modify-playback-state",
     "playlist-read-private",
-    "playlist-read-collaborative",
+    "playlist-read-collaborative"
 ];
+
+
 #[derive(Serialize, Clone, Debug)]
 pub struct TrackInfo {
     pub name: String,
@@ -59,6 +61,8 @@ pub struct LibrespotPlayer {
     pub mixer: Arc<SoftMixer>,
     pub spirc: Arc<Spirc>,
     pub access_token: String,
+    pub refresh_token: String,
+    pub expires_at: Instant,
     inner: Arc<Mutex<PlayerInner>>,
 }
 impl LibrespotPlayer {
@@ -76,6 +80,8 @@ impl LibrespotPlayer {
         .map_err(|e| format!("Task failed: {e}"))??;
         eprintln!("[bardo] OAuth succeeded. Expires at {:#?}", token.expires_at);
         let access_token = token.access_token.clone();
+        let refresh_token = token.refresh_token.clone();
+        let expires_at = token.expires_at;
         let credentials = Credentials::with_access_token(&access_token);
         eprintln!("[bardo] Initializing session + Spirc...");
         let (session, player, mixer, spirc, spirc_task) =
@@ -102,10 +108,13 @@ impl LibrespotPlayer {
             mixer,
             spirc: Arc::new(spirc),
             access_token,
+            refresh_token,
+            expires_at,
             inner,
         })
     }
-    async fn init_spirc(
+
+    pub async fn init_spirc(
         credentials: Credentials,
     ) -> Result<
         (
