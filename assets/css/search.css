@@ -60,7 +60,6 @@ article {
   width: 100px;
   height: 100px;
   object-fit: cover;
-  border: 1px solid var(--border);
   display: block;
   filter: grayscale(20%);
 }
@@ -99,7 +98,6 @@ article {
   height: 36px;
   object-fit: cover;
   flex-shrink: 0;
-  border: 1px solid var(--border);
 }
 .track-result p {
   font-size: 10px;

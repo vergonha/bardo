@@ -181,7 +181,7 @@ function setPlayingUI(playing: boolean) {
   const pauseIcon =
     document.querySelector<HTMLElement>(".fa-solid.fa-pause")!;
   const playIcon =
-    document.querySelector<HTMLElement>(".fa-solid.fa-play")!;
+    document.querySelector<HTMLElement>(".fa-solid.fa-circle-play")!;
   pauseIcon.style.display = playing ? "" : "none";
   playIcon.style.display = playing ? "none" : "";
 }
@@ -421,6 +421,8 @@ async function getPlaylist(id: string) {
     name: playlist.name,
     owner: playlist.owner.display_name,
     icon: playlist.images[0].url,
+    saves: playlist.followers.total.toLocaleString(), // Format number with commas
+    count: playlist.tracks.total,
     tracks: extractTracksFromPlaylist(playlist.tracks.items),
   };
 }
@@ -432,7 +434,6 @@ export function showPlaylist(id: string) {
   renderTrackSkeletons(
     document.querySelector<HTMLUListElement>(".playlist-tracks")!
   );
-  showToast("dada", false, 10)
 
   getPlaylist(id)
     .then((playlist) => {
@@ -458,6 +459,12 @@ export function showPlaylist(id: string) {
       playButton.style.pointerEvents = "";
       playButton.style.opacity = "";
 
+const ownerEl = document.querySelector(".meta-owner")!;
+const countEl = document.querySelector(".meta-songs")!;
+
+ownerEl.textContent = playlist.owner;
+countEl.textContent = `${playlist.tracks.length} tracks`;
+
       const queueItems: QueueItem[] = playlist.tracks.map((t: any) => ({
         uri: t.uri,
         name: t.name,
@@ -476,14 +483,20 @@ export function showPlaylist(id: string) {
         const image = document.createElement("img");
         image.src = track.image;
 
+
+
         const name = document.createElement("p");
+        name.classList.add("track-name")
         name.textContent = track.name;
 
         const artists = document.createElement("p");
+        artists.classList.add("track-artists")
         artists.textContent = track.artists;
 
-        const duration = document.createElement("p");
-        duration.textContent = track.duration;
+        const group = document.createElement("div")
+        group.classList.add("playlist-track-item")
+        group.append(name)
+        group.append(artists)        
 
         const add = document.createElement("i");
         add.classList.add("fa-solid", "fa-plus");
@@ -492,7 +505,15 @@ export function showPlaylist(id: string) {
           addToQueue(queueItems[index], add);
         };
 
-        li.append(image, name, artists, duration);
+        const album = document.createElement("p");
+        album.textContent = track.album;
+        album.classList.add("track-album");
+
+        const duration = document.createElement("p");
+        duration.textContent = track.duration;
+        duration.classList.add("track-duration");
+
+        li.append(image, group, album, duration);
         li.onclick = () => playPlaylist(queueItems, index);
 
         trackDiv.append(li, add);
@@ -553,6 +574,9 @@ async function loadPlaylists() {
 
       ul.appendChild(li);
     });
+
+    showPlaylist(data.items[0].id)    
+
   } catch {
     ul.innerHTML = "";
     showToast("Could not load playlists.", true);
