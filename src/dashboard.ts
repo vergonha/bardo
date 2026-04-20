@@ -181,7 +181,7 @@ function setPlayingUI(playing: boolean) {
   const pauseIcon =
     document.querySelector<HTMLElement>(".fa-solid.fa-pause")!;
   const playIcon =
-    document.querySelector<HTMLElement>(".fa-solid.fa-circle-play")!;
+    document.querySelector<HTMLElement>(".fa-solid.fa-play")!;
   pauseIcon.style.display = playing ? "" : "none";
   playIcon.style.display = playing ? "none" : "";
 }
