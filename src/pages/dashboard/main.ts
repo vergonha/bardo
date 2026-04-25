@@ -252,7 +252,7 @@ function advanceQueue() {
 }
 
 function addToQueue(item: QueueItem, triggerEl?: HTMLElement) {
-  queue.push(item);
+  queue.unshift(item);
   renderQueue();
 
   if (triggerEl) {
