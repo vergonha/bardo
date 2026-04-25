@@ -1,20 +1,10 @@
 import { defineConfig } from "vite";
-import { resolve } from "path";
 
 const host = process.env.TAURI_DEV_HOST;
 
-export default defineConfig(async () => ({
+export default defineConfig(() => ({
   clearScreen: false,
-
-  build: {
-    rollupOptions: {
-      input: {
-        main: resolve(__dirname, "index.html"),
-        dashboard: resolve(__dirname, "dashboard.html"),
-      },
-    },
-  },
-
+  base: "./",
   server: {
     port: 1420,
     strictPort: true,

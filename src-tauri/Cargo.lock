@@ -263,7 +263,7 @@ name = "bardo"
 version = "0.1.0"
 dependencies = [
  "dirs 5.0.1",
- "keyring",
+ "dotenvy",
  "librespot-connect",
  "librespot-core",
  "librespot-metadata",
@@ -1054,6 +1054,12 @@ dependencies = [
  "selectors 0.36.1",
  "tendril 0.5.0",
 ]
+
+[[package]]
+name = "dotenvy"
+version = "0.15.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
 name = "dpi"
@@ -2431,16 +2437,6 @@ dependencies = [
  "bitflags 2.11.0",
  "serde",
  "unicode-segmentation",
-]
-
-[[package]]
-name = "keyring"
-version = "3.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eebcc3aff044e5944a8fbaf69eb277d11986064cba30c468730e8b9909fb551c"
-dependencies = [
- "log",
- "zeroize",
 ]
 
 [[package]]

@@ -1,37 +1,25 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-br">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Bardo</title>
-    <script type="module" src="./src/main.ts"></script>
-    <link rel="stylesheet" href="assets/css/variables.css" />
-    <link rel="stylesheet" href="assets/css/styles.css" />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
-  </head>
-  <body>
-    <div class="login-wrapper">
-      <div class="login-card">
-        <img
-          class="login-cover"
-          src="https://wallpapercave.com/wp/wp10075999.jpg"
-          alt="cover"
+    <head>
+        <meta charset="UTF-8" />
+        <link rel="stylesheet" href="./src/styles/ux.css" />
+        <link rel="stylesheet" href="./src/styles/footer.css" />
+        <link rel="stylesheet" href="./src/styles/playlists.css" />
+        <link rel="stylesheet" href="./src/styles/search.css" />
+        <link rel="stylesheet" href="./src/styles/queue.css" />
+        <link rel="stylesheet" href="./src/styles/main.css" />
+        <link rel="stylesheet" href="./src/styles/dashboard.css" />
+        <link rel="stylesheet" href="./src/styles/variables.css" />
+        <link rel="stylesheet" href="./src/styles/variables.css" />
+        <link rel="stylesheet" href="./src/styles/styles.css" />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
         />
-        <div class="login-info">
-          <div class="login-heading">
-            <h1>Bardo</h1>
-            <p>Spotify desktop client</p>
-          </div>
-          <a href="#" id="btn-login" class="login-btn">
-            <i class="fa-brands fa-spotify"></i>
-            <span>Entrar com Spotify</span>
-          </a>
-          <p class="login-hint" id="login-status"></p>
-        </div>
-      </div>
-    </div>
-  </body>
+    </head>
+    <body>
+        <div id="app"></div>
+
+        <script type="module" src="/src/main.ts"></script>
+    </body>
 </html>

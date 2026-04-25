@@ -2,8 +2,7 @@
 mod player;
 
 use player::LibrespotPlayer;
-use std::{fs, sync::Arc};
-use std::path::PathBuf;
+use std::{sync::Arc};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, State};
@@ -22,28 +21,9 @@ pub struct WebApiState {
     pub refresh_task: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
-#[derive(serde::Deserialize)]
-struct AppConfig {
-    spotify: SpotifyConfig,
-}
-
-#[derive(serde::Deserialize)]
-struct SpotifyConfig {
-    client_id: String,
-}
-
-fn config_path() -> PathBuf {
-    dirs::config_dir()
-        .expect("Couldn't find config folder.")
-        .join("bardo")
-        .join("bardo.config.toml")
-}
-
-fn load_config() -> Result<AppConfig, String> {
-    let path = config_path();
-    let content = fs::read_to_string(&path)
-        .map_err(|_| format!("bardo.config.toml not found at {}", path.display()))?;
-    toml::from_str(&content).map_err(|e| format!("Config parse error: {e}"))
+pub fn spotify_client_id() -> String {
+    std::env::var("SPOTIFY_CLIENT_ID")
+        .expect("SPOTIFY_CLIENT_ID must be set")
 }
 
 async fn refresh_webapi_token(
@@ -67,7 +47,7 @@ async fn refresh_webapi_token(
         .form(&[
             ("grant_type", "refresh_token"),
             ("refresh_token", refresh_token.as_str()),
-            ("client_id", player::SPOTIFY_CLIENT_ID),
+            ("client_id", &spotify_client_id()),
         ])
         .send()
         .await
@@ -173,7 +153,7 @@ async fn run_spotify_login(
 
     let token = tokio::task::spawn_blocking(|| {
         librespot_oauth::OAuthClientBuilder::new(
-            player::SPOTIFY_CLIENT_ID,
+            &spotify_client_id(),
             "http://127.0.0.1:8888/login",
             player::SCOPES.to_vec(),
         )
@@ -238,13 +218,8 @@ fn get_access_token(web_state: State<'_, WebApiState>) -> Result<String, String>
 }
 
 #[tauri::command]
-fn check_config() -> Result<(), String> {
-    load_config().map(|_| ())
-}
-
-#[tauri::command]
-fn get_client_id() -> Result<String, String> {
-    load_config().map(|c| c.spotify.client_id)
+fn get_client_id() -> String {
+    spotify_client_id()
 }
 
 #[tauri::command]
@@ -343,7 +318,6 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             run_spotify_login,
             get_access_token,
-            check_config,
             get_client_id,
             player_play_track,
             player_pause,

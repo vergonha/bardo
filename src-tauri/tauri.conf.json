@@ -16,7 +16,8 @@
         "devtools": true,
         "title": "bardo",
         "width": 1280,
-        "height": 720
+        "height": 720,
+        "dragDropEnabled": false
       }
     ],
     "security": {

@@ -19,7 +19,6 @@ use librespot_playback::{
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
-pub const SPOTIFY_CLIENT_ID: &str = "6eb9dc7f1df14d7aa1d9ad394c763799";
 pub const SCOPES: &[&str] = &[
     "streaming",
     "user-read-email",
