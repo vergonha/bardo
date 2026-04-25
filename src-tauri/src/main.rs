@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod player;
-
+mod osmc;
 use player::LibrespotPlayer;
 use std::{sync::Arc};
 use std::sync::Mutex;
@@ -200,7 +200,7 @@ async fn run_spotify_login(
     *player_state.0.lock().unwrap() = Some(p);
 
     spawn_webapi_refresh(web_state.clone());
-    
+
     eprintln!("[bardo] login complete");
 
     Ok(())

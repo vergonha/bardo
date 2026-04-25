@@ -1,3 +1,6 @@
+use souvlaki::{MediaControls, MediaMetadata, MediaPlayback};
+use crate::osmc::init_media_controls;
+use tauri::Manager;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use librespot_connect::{ConnectConfig, Spirc};
@@ -73,6 +76,19 @@ impl LibrespotPlayer {
         app_handle: AppHandle,
     ) -> Self {
         eprintln!("[bardo] building LibrespotPlayer");
+        let spirc = Arc::new(spirc);
+
+        #[cfg(target_os = "windows")]
+        let hwnd = app_handle
+            .get_webview_window("main")
+            .and_then(|w| w.hwnd().ok())
+            .map(|h| h.0 as *mut std::ffi::c_void);
+
+        // todo
+        #[cfg(not(target_os = "windows"))]
+        let hwnd = None;
+
+        let media_controls = init_media_controls(hwnd, app_handle.clone());
 
         let inner = Arc::new(Mutex::new(PlayerInner {
             position_ms: 0,
@@ -85,6 +101,7 @@ impl LibrespotPlayer {
             session,
             app_handle.clone(),
             inner.clone(),
+            media_controls.clone(),
         );
 
         Self::spawn_position_ticker(app_handle, inner.clone());
@@ -94,7 +111,7 @@ impl LibrespotPlayer {
         Self {
             player,
             mixer,
-            spirc: Arc::new(spirc),
+            spirc,
             inner,
         }
     }
@@ -169,6 +186,7 @@ impl LibrespotPlayer {
         session: Session,
         app: AppHandle,
         inner: Arc<Mutex<PlayerInner>>,
+        media_controls: Arc<Mutex<MediaControls>>,
     ) {
         tokio::spawn(async move {
             eprintln!("[bardo] Event loop started.");
@@ -202,11 +220,14 @@ impl LibrespotPlayer {
                                 })
                                 .unwrap_or_default();
 
+                            let title = track.name.clone();
+                            let album = track.album.name.clone();
+
                             let info = TrackInfo {
-                                name: track.name.clone(),
+                                name: title.clone(),
                                 artists: artists.clone(),
-                                album: track.album.name.clone(),
-                                image_url,
+                                album: album.clone(),
+                                image_url: image_url.clone(),
                                 duration_ms: track.duration as u32,
                                 uri: audio_item.uri.clone(),
                             };
@@ -215,6 +236,22 @@ impl LibrespotPlayer {
                                 "[bardo] Emitting track_changed: {} - {}",
                                 info.name, artists
                             );
+
+                            let mc = media_controls.clone();
+                            tokio::task::spawn_blocking(move || {
+                                if let Ok(mut mc) = mc.lock() {
+                                    let _ = mc.set_metadata(MediaMetadata {
+                                        title: Some(&title),
+                                        artist: Some(&artists),
+                                        album: Some(&album),
+                                        cover_url: Some(&image_url),
+                                        ..Default::default()
+                                    });
+                                    let _ = mc.set_playback(MediaPlayback::Playing {
+                                        progress: None,
+                                    });
+                                }
+                            });
 
                             let _ = app.emit("track_changed", info);
                         }
@@ -226,6 +263,13 @@ impl LibrespotPlayer {
                         s.position_ms = position_ms;
                         s.started_at = Some(Instant::now());
                         s.is_playing = true;
+
+                        let mc = media_controls.clone();
+                        tokio::task::spawn_blocking(move || {
+                            if let Ok(mut mc) = mc.lock() {
+                                let _ = mc.set_playback(MediaPlayback::Playing { progress: None });
+                            }
+                        });
                     }
                     PlayerEvent::Paused { position_ms, .. } => {
                         eprintln!("[bardo] Paused at {position_ms}ms");
@@ -236,6 +280,13 @@ impl LibrespotPlayer {
                         s.is_playing = false;
 
                         let _ = app.emit("player_paused", ());
+
+                        let mc = media_controls.clone();
+                        tokio::task::spawn_blocking(move || {
+                            if let Ok(mut mc) = mc.lock() {
+                                let _ = mc.set_playback(MediaPlayback::Paused { progress: None });
+                            }
+                        });
                     }
                     PlayerEvent::Stopped { .. } => {
                         eprintln!("[bardo] Stopped.");
@@ -246,18 +297,29 @@ impl LibrespotPlayer {
                         s.is_playing = false;
 
                         let _ = app.emit("player_stopped", ());
+                        let mc = media_controls.clone();
+                        tokio::task::spawn_blocking(move || {
+                            if let Ok(mut mc) = mc.lock() {
+                                let _ = mc.set_playback(MediaPlayback::Stopped);
+                            }
+                        });
                     }
                     PlayerEvent::EndOfTrack { .. } => {
                         eprintln!("[bardo] EndOfTrack.");
 
-                        {
-                            let mut s = inner.lock().unwrap();
-                            s.position_ms = 0;
-                            s.started_at = None;
-                            s.is_playing = false;
-                        }
+                        let mut s = inner.lock().unwrap();
+                        s.position_ms = 0;
+                        s.started_at = None;
+                        s.is_playing = false;
 
                         let _ = app.emit("track_ended", ());
+
+                        let mc = media_controls.clone();
+                        tokio::task::spawn_blocking(move || {
+                            if let Ok(mut mc) = mc.lock() {
+                                let _ = mc.set_playback(MediaPlayback::Stopped);
+                            }
+                        });
                     }
                     _ => {}
                 }

@@ -27,6 +27,7 @@ tokio = { version = "1", features = ["full"] }
 toml = "0.8"
 dirs = "5"
 dotenvy = "0.15"
+souvlaki = "0.8.3"
 
 librespot-core     = { git = "https://github.com/librespot-org/librespot", branch = "dev" }
 librespot-playback = { git = "https://github.com/librespot-org/librespot", branch = "dev", features = ["rodio-backend"] }

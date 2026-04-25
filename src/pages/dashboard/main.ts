@@ -770,6 +770,21 @@ export function init() {
   renderQueue();
   initQueueDragListeners();
 
+  listen("smtc_play", () => {
+    invoke("player_resume").then(() => setPlayingUI(true));
+  });
+
+  listen("smtc_pause", () => {
+    invoke("player_pause").then(() => setPlayingUI(false));
+  });
+
+  listen("smtc_next", () => advanceQueue());
+
+  listen("smtc_prev", () => {
+    invoke("player_seek", { positionMs: 0 });
+    resetDurationValues();
+  });
+
   listen("player_paused", () => setPlayingUI(false));
 
   listen("player_stopped", () => {
