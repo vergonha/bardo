@@ -83,6 +83,275 @@ function setPlaylistPlayBtnLoading(loading: boolean) {
   }
 }
 
+async function getAlbum(id: string) {
+  const data = await fetchApi(`albums/${id}`);
+
+  return {
+    name: data.name,
+    image: data.images?.[0]?.url || "",
+    artists: data.artists.map((a: any) => a.name).join(", "),
+    tracks: data.tracks.items.map((t: any) => ({
+      uri: t.uri,
+      name: t.name,
+      artists: t.artists.map((a: any) => a.name).join(", "),
+      image: data.images?.[0]?.url,
+      album: data.name,
+      duration: millisToMinutesAndSeconds(t.duration_ms),
+    })),
+  };
+}
+
+function showAlbum(id: string) {
+  playlistPlayBtn = document.querySelector<HTMLElement>(".play-button")!;
+
+  renderPlaylistHeaderSkeleton();
+  renderTrackSkeletons(
+    document.querySelector<HTMLUListElement>(".playlist-tracks")!,
+  );
+
+  getAlbum(id)
+    .then((album) => {
+      const playlistImage = document.querySelector<HTMLImageElement>(
+        ".playlist-image-object",
+      )!;
+      const playlistTitle = document.querySelector(".playlist-main-title")!;
+      const playlistDescription = document.querySelector(
+        ".playlist-description",
+      )!;
+      const playlistUL =
+        document.querySelector<HTMLUListElement>(".playlist-tracks")!;
+      const playButton = document.querySelector<HTMLElement>(".play-button")!;
+
+      clearPlaylistHeaderSkeleton();
+
+      playlistImage.src = album.image;
+      playlistTitle.innerHTML = album.name;
+      playlistDescription.innerHTML = album.artists;
+
+      playButton.style.display = "inline-block";
+
+      const icon = playButton.querySelector("i")!;
+      icon.className = "fa-solid fa-circle-play";
+      playButton.style.pointerEvents = "";
+      playButton.style.opacity = "";
+
+      const ownerEl = document.querySelector(".meta-owner")!;
+      const countEl = document.querySelector(".meta-songs")!;
+
+      ownerEl.textContent = "Album";
+      countEl.textContent = `${album.tracks.length} tracks`;
+
+      const queueItems: QueueItem[] = album.tracks.map((t: any) => ({
+        uri: t.uri,
+        name: t.name,
+        artists: t.artists,
+        image: t.image,
+      }));
+
+      playlistUL.innerHTML = "";
+
+      album.tracks.forEach((track: any, index: number) => {
+        const trackDiv = document.createElement("div");
+        trackDiv.classList.add("track");
+
+        const li = document.createElement("li");
+
+        const image = document.createElement("img");
+        image.src = track.image;
+
+        const name = document.createElement("p");
+        name.classList.add("track-name");
+        name.textContent = track.name;
+
+        const artists = document.createElement("p");
+        artists.classList.add("track-artists");
+        artists.textContent = track.artists;
+
+        const group = document.createElement("div");
+        group.classList.add("playlist-track-item");
+        group.append(name, artists);
+
+        const add = document.createElement("i");
+        add.classList.add("fa-solid", "fa-plus");
+        add.onclick = (e) => {
+          e.stopPropagation();
+          addToQueue(queueItems[index], add);
+        };
+
+        const albumName = document.createElement("p");
+        albumName.textContent = track.album;
+        albumName.classList.add("track-album");
+
+        const duration = document.createElement("p");
+        duration.textContent = track.duration;
+        duration.classList.add("track-duration");
+
+        li.append(image, group, albumName, duration);
+        li.onclick = () => playPlaylist(queueItems, index);
+
+        trackDiv.append(li, add);
+        playlistUL.appendChild(trackDiv);
+      });
+
+      playButton.onclick = () => {
+        setPlaylistPlayBtnLoading(true);
+        playPlaylist(queueItems, 0);
+      };
+    })
+    .catch((e) => {
+      console.error(e);
+      clearPlaylistHeaderSkeleton();
+      document.querySelector(".playlist-main-title")!.innerHTML =
+        "Failed to load album";
+      document.querySelector(".playlist-description")!.innerHTML = "";
+      document.querySelector<HTMLUListElement>(".playlist-tracks")!.innerHTML =
+        "";
+      showToast("Could not load album. Try again.", true);
+    });
+}
+
+function showArtistTopTracks(name: string) {
+  playlistPlayBtn = document.querySelector<HTMLElement>(".play-button")!;
+
+  renderPlaylistHeaderSkeleton();
+  renderTrackSkeletons(
+    document.querySelector<HTMLUListElement>(".playlist-tracks")!,
+  );
+
+  getArtistTopTracks(name)
+    .then((artist) => {
+      const playlistImage = document.querySelector<HTMLImageElement>(
+        ".playlist-image-object",
+      )!;
+      const playlistTitle = document.querySelector(".playlist-main-title")!;
+      const playlistDescription = document.querySelector(
+        ".playlist-description",
+      )!;
+      const playlistUL =
+        document.querySelector<HTMLUListElement>(".playlist-tracks")!;
+      const playButton = document.querySelector<HTMLElement>(".play-button")!;
+
+      clearPlaylistHeaderSkeleton();
+
+      playlistImage.src = artist.image;
+      playlistTitle.innerHTML = artist.name;
+      playlistDescription.innerHTML = "Top tracks";
+
+      playButton.style.display = "inline-block";
+
+      const icon = playButton.querySelector("i")!;
+      icon.className = "fa-solid fa-circle-play";
+      playButton.style.pointerEvents = "";
+      playButton.style.opacity = "";
+
+      const ownerEl = document.querySelector(".meta-owner")!;
+      const countEl = document.querySelector(".meta-songs")!;
+
+      ownerEl.textContent = "Artist";
+      countEl.textContent = `${artist.tracks.length} tracks`;
+
+      const queueItems: QueueItem[] = artist.tracks.map((t: any) => ({
+        uri: t.uri,
+        name: t.name,
+        artists: t.artists,
+        image: t.image,
+      }));
+
+      playlistUL.innerHTML = "";
+
+      artist.tracks.forEach((track: any, index: number) => {
+        const trackDiv = document.createElement("div");
+        trackDiv.classList.add("track");
+
+        const li = document.createElement("li");
+
+        const image = document.createElement("img");
+        image.src = track.image;
+
+        const name = document.createElement("p");
+        name.classList.add("track-name");
+        name.textContent = track.name;
+
+        const artists = document.createElement("p");
+        artists.classList.add("track-artists");
+        artists.textContent = track.artists;
+
+        const group = document.createElement("div");
+        group.classList.add("playlist-track-item");
+        group.append(name, artists);
+
+        const add = document.createElement("i");
+        add.classList.add("fa-solid", "fa-plus");
+        add.onclick = (e) => {
+          e.stopPropagation();
+          addToQueue(queueItems[index], add);
+        };
+
+        const album = document.createElement("p");
+        album.textContent = track.album;
+        album.classList.add("track-album");
+        album.style.cursor = "pointer";
+        album.addEventListener("mouseenter", () => {
+          album.style.textDecoration = "underline";
+        });
+        album.addEventListener("mouseleave", () => {
+          album.style.textDecoration = "none";
+        });
+        album.onclick = (e) => {
+          e.stopPropagation();
+          showAlbum(track.album_id);
+        };
+
+        const duration = document.createElement("p");
+        duration.textContent = track.duration;
+        duration.classList.add("track-duration");
+
+        li.append(image, group, album, duration);
+        li.onclick = (e) => {
+          if ((e.target as HTMLElement).closest(".track-name")) return;
+          playPlaylist(queueItems, index);
+        };
+
+        trackDiv.append(li, add);
+        playlistUL.appendChild(trackDiv);
+      });
+
+      playButton.onclick = () => {
+        setPlaylistPlayBtnLoading(true);
+        playPlaylist(queueItems, 0);
+      };
+    })
+    .catch((e) => {
+      console.error(e);
+      clearPlaylistHeaderSkeleton();
+      document.querySelector(".playlist-main-title")!.innerHTML =
+        "Failed to load artist";
+      document.querySelector(".playlist-description")!.innerHTML = "";
+      document.querySelector<HTMLUListElement>(".playlist-tracks")!.innerHTML =
+        "";
+      showToast("Could not load artist tracks. Try again.", true);
+    });
+}
+
+async function getArtistTopTracks(artistName: string) {
+  const data = await fetchApi(
+    `search?type=track&q=artist:${encodeURIComponent(artistName)}&limit=50`,
+  );
+
+  return {
+    name: artistName || "Artist",
+    image: data.tracks.items[0]?.album.images[0]?.url || "",
+    tracks: data.tracks.items.map((t: any) => ({
+      uri: t.uri,
+      name: t.name,
+      artists: t.artists.map((a: any) => a.name).join(", "),
+      image: t.album.images[0]?.url,
+      album: t.album.name,
+      album_id: t.album.id,
+      duration: millisToMinutesAndSeconds(t.duration_ms),
+    })),
+  };
+}
 function renderPlaylistHeaderSkeleton() {
   const playlistImage = document.querySelector<HTMLImageElement>(
     ".playlist-image-object",
@@ -139,6 +408,21 @@ function renderSearchSkeletons() {
       </div>
     `;
     tracksDiv.appendChild(div);
+  }
+
+  const artistsDiv = document.querySelector<HTMLElement>(".artists-results")!;
+  artistsDiv.innerHTML = "";
+  for (let i = 0; i < 4; i++) {
+    const div = document.createElement("div");
+    div.className = "search-artist-skeleton";
+    div.innerHTML = `
+      <div class="skeleton search-sk-img"></div>
+      <div class="search-sk-info">
+        <div class="skeleton search-sk-name" style="width:${50 + Math.random() * 25}%"></div>
+        <div class="skeleton search-sk-artist" style="width:${30 + Math.random() * 20}%"></div>
+      </div>
+    `;
+    artistsDiv.appendChild(div);
   }
 
   const playlistsDiv =
@@ -395,19 +679,24 @@ function toggleQueuePanel() {
     .classList.toggle("active", queueVisible);
 }
 
+function extractInfoFromTrack(track: any) {
+  return {
+    name: track.name,
+    id: track.id,
+    album: track.album.name,
+    album_id: track.album.id,
+    image: track.album.images[0].url,
+    uri: track.uri,
+    artists: track.artists.map((a: any) => a.name).join(", "),
+    duration: millisToMinutesAndSeconds(track.duration_ms),
+  };
+}
+
 function extractTracksFromPlaylist(tracks: any[]): any[] {
   const infos: any[] = [];
-  tracks.forEach((track) => {
+  tracks.forEach((item) => {
     try {
-      infos.push({
-        name: track.track.name,
-        id: track.track.id,
-        album: track.track.album.name,
-        image: track.track.album.images[0].url,
-        uri: track.track.uri,
-        artists: track.track.artists.map((a: any) => a.name).join(", "),
-        duration: millisToMinutesAndSeconds(track.track.duration_ms),
-      });
+      infos.push(extractInfoFromTrack(item.track));
     } catch {}
   });
   return infos;
@@ -505,13 +794,24 @@ export function showPlaylist(id: string) {
         const album = document.createElement("p");
         album.textContent = track.album;
         album.classList.add("track-album");
+        album.style.cursor = "pointer";
+        album.addEventListener("mouseenter", () => {
+          album.style.textDecoration = "underline";
+        });
+        album.addEventListener("mouseleave", () => {
+          album.style.textDecoration = "none";
+        });
+        album.onclick = () => showAlbum(track.album_id);
 
         const duration = document.createElement("p");
         duration.textContent = track.duration;
         duration.classList.add("track-duration");
 
         li.append(image, group, album, duration);
-        li.onclick = () => playPlaylist(queueItems, index);
+        li.onclick = (e) => {
+          if ((e.target as HTMLElement).closest(".track-name")) return;
+          playPlaylist(queueItems, index);
+        };
 
         trackDiv.append(li, add);
         playlistUL.appendChild(trackDiv);
@@ -578,6 +878,32 @@ async function loadPlaylists() {
   }
 }
 
+function handleSearchArtists(artists: any) {
+  const artistsDiv = document.querySelector<HTMLElement>(".artists-results")!;
+  artistsDiv.innerHTML = "";
+  artists.items.forEach((artist: any) => {
+    if (!artist.images.length) {
+      return;
+    }
+
+    const div = document.createElement("div");
+    div.classList.add("artist-result");
+
+    const icon = document.createElement("img");
+    icon.src = artist.images[0].url;
+
+    const name = document.createElement("p");
+    name.textContent = artist.name;
+
+    // const artists = document.createElement("p");
+    // artists.textContent = track.artists.map((a: any) => a.name).join(", ");
+
+    div.append(icon, name);
+    div.onclick = () => showArtistTopTracks(artist.name);
+    artistsDiv.appendChild(div);
+  });
+}
+
 function handleSearchTracks(tracks: any) {
   const tracksDiv = document.querySelector<HTMLElement>(".tracks-results")!;
   tracksDiv.innerHTML = "";
@@ -594,7 +920,14 @@ function handleSearchTracks(tracks: any) {
     const artists = document.createElement("p");
     artists.textContent = track.artists.map((a: any) => a.name).join(", ");
 
-    div.append(icon, name, artists);
+    const add = document.createElement("i");
+    add.classList.add("fa-solid", "fa-plus");
+    add.onclick = (e) => {
+      e.stopPropagation();
+      addToQueue(extractInfoFromTrack(track), add);
+    };
+
+    div.append(icon, name, artists, add);
     div.onclick = () => playSearchTrack(track.uri);
     tracksDiv.appendChild(div);
   });
@@ -617,7 +950,7 @@ function handleSearchPlaylists(playlists: any) {
     name.textContent = item.name;
 
     const owner = document.createElement("p");
-    owner.textContent = `from ${item.owner.display_name}`;
+    owner.textContent = `playlist from ${item.owner.display_name}`;
 
     div.append(icon, name, owner);
     div.onclick = () => showPlaylist(item.id);
@@ -734,18 +1067,21 @@ const doSearch = debounce(() => {
   if (!search.value) return;
   const body = new URLSearchParams({
     q: search.value,
-    type: "track,playlist",
+    type: "track,playlist,artist",
     limit: "4",
   });
   fetchApi("search?" + body)
     .then((res) => {
       searchPending = false;
+      handleSearchArtists(res.artists);
       handleSearchPlaylists(res.playlists);
       handleSearchTracks(res.tracks);
     })
-    .catch(() => {
+    .catch((e) => {
+      console.error(e);
       searchPending = false;
       document.querySelector<HTMLElement>(".tracks-results")!.innerHTML = "";
+      document.querySelector<HTMLElement>(".artists-results")!.innerHTML = "";
       document.querySelector<HTMLElement>(".playlists-results")!.innerHTML = "";
       showToast("Search failed. Try again.", true);
     });
@@ -754,6 +1090,7 @@ const doSearch = debounce(() => {
 search.addEventListener("keyup", () => {
   if (!search.value) {
     document.querySelector<HTMLElement>(".tracks-results")!.innerHTML = "";
+    document.querySelector<HTMLElement>(".artists-results")!.innerHTML = "";
     document.querySelector<HTMLElement>(".playlists-results")!.innerHTML = "";
     searchPending = false;
     return;
