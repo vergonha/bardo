@@ -82,5 +82,5 @@ sudo apt install libwebkit2gtk-4.1-dev \
 - [ ] mpris bridge to control playback with linux bindings
 - [ ] new shortcuts, eg control volume with mouse scroll when focused on the slider
 - [ ] test and merge the pr that fixes [this bug](https://github.com/RustAudio/rodio/issues/463) on windows
-- [ ] function to render and listen to songs by artist
+- [x] function to render and listen to songs by artist
 - [ ] rewrite the css and switch it to something more readable
