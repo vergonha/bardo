@@ -31,6 +31,8 @@ pub const SCOPES: &[&str] = &[
     "user-modify-playback-state",
     "playlist-read-private",
     "playlist-read-collaborative",
+    "user-read-recently-played",
+    "user-top-read",
 ];
 
 #[derive(Serialize, Clone, Debug)]
@@ -64,6 +66,7 @@ pub struct LibrespotPlayer {
     pub player: Arc<Player>,
     pub mixer: Arc<SoftMixer>,
     pub spirc: Arc<Spirc>,
+    session: Session,
     inner: Arc<Mutex<PlayerInner>>,
 }
 
@@ -75,7 +78,7 @@ impl LibrespotPlayer {
         spirc: Spirc,
         app_handle: AppHandle,
     ) -> Self {
-        blog!("[bardo] building LibrespotPlayer");
+        blog!("[bardo player] building LibrespotPlayer");
         let spirc = Arc::new(spirc);
 
         #[cfg(target_os = "windows")]
@@ -98,7 +101,7 @@ impl LibrespotPlayer {
 
         Self::spawn_event_loop(
             player.get_player_event_channel(),
-            session,
+            session.clone(),
             app_handle.clone(),
             inner.clone(),
             media_controls.clone(),
@@ -106,14 +109,19 @@ impl LibrespotPlayer {
 
         Self::spawn_position_ticker(app_handle, inner.clone());
 
-        blog!("[bardo] LibrespotPlayer ready");
+        blog!("[bardo player] LibrespotPlayer ready");
 
         Self {
             player,
             mixer,
             spirc,
+            session,
             inner,
         }
+    }
+
+    pub fn session(&self) -> Session {
+        self.session.clone()
     }
 
     pub async fn init_spirc(
@@ -133,12 +141,12 @@ impl LibrespotPlayer {
         let mut last_err = String::new();
 
         for attempt in 1u8..=5 {
-            blog!("[bardo] Attempt {attempt}/5: creating fresh session...");
+            blog!("[bardo player] Attempt {attempt}/5: creating fresh session...");
 
             let session = Session::new(SessionConfig::default(), None);
             let mixer = Arc::new(SoftMixer::open(MixerConfig::default()).unwrap());
 
-            blog!("[bardo] Attempt {attempt}/5: creating player...");
+            blog!("[bardo player] Attempt {attempt}/5: creating player...");
 
             let player = Player::new(
                 PlayerConfig::default(),
@@ -148,11 +156,11 @@ impl LibrespotPlayer {
             );
 
             let connect_config = ConnectConfig {
-                name: "Bardo".to_string(),
+                name: "Bardo player".to_string(),
                 ..Default::default()
             };
 
-            blog!("[bardo] Attempt {attempt}/5: starting Spirc...");
+            blog!("[bardo player] Attempt {attempt}/5: starting Spirc...");
 
             match Spirc::new(
                 connect_config,
@@ -165,14 +173,14 @@ impl LibrespotPlayer {
             {
                 Ok((spirc, task)) => {
                     blog!(
-                        "[bardo] Spirc started on attempt {attempt}. Username: {:?}",
+                        "[bardo player] Spirc started on attempt {attempt}. Username: {:?}",
                         session.username()
                     );
                     return Ok((session, player, mixer, spirc, task));
                 }
                 Err(e) => {
                     last_err = e.to_string();
-                    blog!("[bardo] Spirc failed (attempt {attempt}): {e}");
+                    blog!("[bardo player] Spirc failed (attempt {attempt}): {e}");
                     tokio::time::sleep(Duration::from_millis(500 * attempt as u64)).await;
                 }
             }
@@ -189,12 +197,12 @@ impl LibrespotPlayer {
         media_controls: Arc<Mutex<MediaControls>>,
     ) {
         tokio::spawn(async move {
-            blog!("[bardo] Event loop started.");
+            blog!("[bardo player] Event loop started.");
 
             while let Some(event) = event_channel.recv().await {
                 match event {
                     PlayerEvent::TrackChanged { audio_item } => {
-                        blog!("[bardo] TrackChanged: {}", audio_item.uri);
+                        blog!("[bardo player] TrackChanged: {}", audio_item.uri);
 
                         if let Ok(track) =
                             Track::get(&session, &audio_item.track_id).await
@@ -233,7 +241,7 @@ impl LibrespotPlayer {
                             };
 
                             blog!(
-                                "[bardo] Emitting track_changed: {} - {}",
+                                "[bardo player] Emitting track_changed: {} - {}",
                                 info.name, artists
                             );
 
@@ -257,7 +265,7 @@ impl LibrespotPlayer {
                         }
                     }
                     PlayerEvent::Playing { position_ms, .. } => {
-                        blog!("[bardo] Playing at {position_ms}ms");
+                        blog!("[bardo player] Playing at {position_ms}ms");
 
                         let mut s = inner.lock().unwrap();
                         s.position_ms = position_ms;
@@ -272,7 +280,7 @@ impl LibrespotPlayer {
                         });
                     }
                     PlayerEvent::Paused { position_ms, .. } => {
-                        blog!("[bardo] Paused at {position_ms}ms");
+                        blog!("[bardo player] Paused at {position_ms}ms");
 
                         let mut s = inner.lock().unwrap();
                         s.position_ms = position_ms;
@@ -289,7 +297,7 @@ impl LibrespotPlayer {
                         });
                     }
                     PlayerEvent::Stopped { .. } => {
-                        blog!("[bardo] Stopped.");
+                        blog!("[bardo player] Stopped.");
 
                         let mut s = inner.lock().unwrap();
                         s.position_ms = 0;
@@ -305,7 +313,7 @@ impl LibrespotPlayer {
                         });
                     }
                     PlayerEvent::EndOfTrack { .. } => {
-                        blog!("[bardo] EndOfTrack.");
+                        blog!("[bardo player] EndOfTrack.");
 
                         let mut s = inner.lock().unwrap();
                         s.position_ms = 0;
@@ -325,7 +333,7 @@ impl LibrespotPlayer {
                 }
             }
 
-            blog!("[bardo] WARNING: event_channel closed — event loop exited");
+            blog!("[bardo player] WARNING: event_channel closed — event loop exited");
         });
     }
 
@@ -349,22 +357,22 @@ impl LibrespotPlayer {
     }
 
     pub fn play_track(&self, uri: String) {
-        blog!("[bardo] play_track: {uri}");
+        blog!("[bardo player] play_track: {uri}");
         load_uri(&self.player, &uri);
     }
 
     pub fn pause(&self) {
-        blog!("[bardo] pause()");
+        blog!("[bardo player] pause()");
         self.player.pause();
     }
 
     pub fn resume(&self) {
-        blog!("[bardo] resume()");
+        blog!("[bardo player] resume()");
         self.player.play();
     }
 
     pub fn seek(&self, position_ms: u32) {
-        blog!("[bardo] seek({position_ms}ms)");
+        blog!("[bardo player] seek({position_ms}ms)");
         self.player.seek(position_ms);
 
         let mut s = self.inner.lock().unwrap();
@@ -374,14 +382,270 @@ impl LibrespotPlayer {
 
     pub fn set_volume(&self, volume: f64) {
         let v = (volume * u16::MAX as f64).clamp(0.0, u16::MAX as f64) as u16;
-        blog!("[bardo] set_volume({volume} -> raw {v})");
+        blog!("[bardo player] set_volume({volume} -> raw {v})");
         self.mixer.set_volume(v);
     }
 
     pub fn stop(&self) {
-        blog!("[bardo] stop()");
+        blog!("[bardo player] stop()");
         self.player.stop();
     }
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub struct RootlistPlaylist {
+    pub uri: String,
+    pub name: String,
+    pub image_url: Option<String>,
+    pub owner: String,
+}
+
+pub(crate) async fn fetch_rootlist_playlists(
+    session: &Session,
+) -> Result<Vec<RootlistPlaylist>, String> {
+    use protobuf::Message;
+
+    let mut playlists = Vec::new();
+    let mut from = 0usize;
+
+    loop {
+        let bytes = session
+            .spclient()
+            .get_rootlist(from, Some(500))
+            .await
+            .map_err(|e| format!("rootlist request failed: {e}"))?;
+
+        let content =
+            librespot_protocol::playlist4_external::SelectedListContent::parse_from_bytes(&bytes)
+                .map_err(|e| format!("rootlist parse failed: {e}"))?;
+
+        let Some(contents) = content.contents.into_option() else {
+            break;
+        };
+
+        let count = contents.items.len();
+        let truncated = contents.truncated();
+
+        for (item, meta) in contents.items.iter().zip(contents.meta_items.iter()) {
+            let uri = item.uri();
+            if !uri.starts_with("spotify:playlist:") {
+                continue;
+            }
+
+            playlists.push(RootlistPlaylist {
+                uri: uri.to_string(),
+                name: meta.attributes.name().to_string(),
+                image_url: cover(
+                    meta.attributes.picture(),
+                    meta.attributes
+                        .picture_size
+                        .iter()
+                        .map(|p| (p.target_name(), p.url())),
+                ),
+                owner: meta.owner_username().to_string(),
+            });
+        }
+
+        if !truncated || count == 0 {
+            break;
+        }
+        from += count;
+    }
+
+    Ok(playlists)
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub struct TrackArtist {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub struct PlaylistTrack {
+    pub uri: String,
+    pub id: String,
+    pub name: String,
+    pub artists: String,
+    pub artist_list: Vec<TrackArtist>,
+    pub album: String,
+    pub album_id: String,
+    pub image: String,
+    pub duration_ms: i32,
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub struct PlaylistDetail {
+    pub name: String,
+    pub description: String,
+    pub owner: String,
+    pub icon: Option<String>,
+    pub tracks: Vec<PlaylistTrack>,
+}
+
+const IMAGE_HOST: &str = "https://i.scdn.co/image/";
+
+fn cover<'a>(picture: &[u8], sizes: impl Iterator<Item = (&'a str, &'a str)>) -> Option<String> {
+    let mut best: Option<(u8, &str)> = None;
+    for (target_name, url) in sizes {
+        let rank = match target_name {
+            "large" => 3,
+            "default" => 2,
+            _ => 1,
+        };
+        if best.is_none() || best.is_some_and(|(seen, _)| rank > seen) {
+            best = Some((rank, url));
+        }
+    }
+    best.and_then(|(_, url)| match url.strip_prefix("spotify:image:") {
+        Some(hex) => Some(format!("{IMAGE_HOST}{hex}")),
+        None if url.starts_with("http") => Some(url.to_string()),
+        None => None,
+    })
+        .or_else(|| {
+            (!picture.is_empty())
+                .then(|| format!("{IMAGE_HOST}{}", librespot_core::FileId::from_raw(picture)))
+        })
+}
+
+pub(crate) async fn fetch_playlist(
+    session: &Session,
+    id: &str,
+) -> Result<PlaylistDetail, String> {
+    use librespot_metadata::Playlist;
+
+    let uri = SpotifyUri::Playlist {
+        user: None,
+        id: SpotifyId::from_base62(id).map_err(|e| format!("bad playlist id: {e}"))?,
+    };
+    let list = Playlist::get(session, &uri)
+        .await
+        .map_err(|e| format!("playlist read failed: {e}"))?;
+
+    let attributes = &list.attributes;
+    let icon = cover(
+        &attributes.picture,
+        attributes
+            .picture_sizes
+            .iter()
+            .map(|p| (p.target_name.as_str(), p.url.as_str())),
+    );
+
+    let owner = match &list.id {
+        SpotifyUri::Playlist { user: Some(u), .. } => u.clone(),
+        _ => String::new(),
+    };
+
+    let details = track_metadata(session, &list.contents.items).await?;
+    let tracks = list
+        .contents
+        .items
+        .iter()
+        .filter_map(|row| details.get(&row.id.to_uri()).cloned())
+        .collect();
+
+    Ok(PlaylistDetail {
+        name: attributes.name.clone(),
+        description: attributes.description.clone(),
+        owner,
+        icon,
+        tracks,
+    })
+}
+
+async fn track_metadata(
+    session: &Session,
+    rows: &[librespot_metadata::playlist::item::PlaylistItem],
+) -> Result<std::collections::HashMap<String, PlaylistTrack>, String> {
+    use librespot_protocol::extended_metadata::{
+        BatchedEntityRequest, EntityRequest, ExtensionQuery,
+    };
+    use librespot_protocol::extension_kind::ExtensionKind;
+    use protobuf::{EnumOrUnknown, Message};
+
+    let mut asked = std::collections::HashSet::new();
+    let mut request = BatchedEntityRequest::new();
+    for row in rows {
+        if !matches!(row.id, SpotifyUri::Track { .. }) {
+            continue;
+        }
+        let uri = row.id.to_uri();
+        if !asked.insert(uri.clone()) {
+            continue;
+        }
+        request.entity_request.push(EntityRequest {
+            entity_uri: uri,
+            query: vec![ExtensionQuery {
+                extension_kind: EnumOrUnknown::new(ExtensionKind::TRACK_V4),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+    }
+
+    let mut out = std::collections::HashMap::new();
+    if request.entity_request.is_empty() {
+        return Ok(out);
+    }
+
+    let response = session
+        .spclient()
+        .get_extended_metadata(request)
+        .await
+        .map_err(|e| format!("track metadata failed: {e}"))?;
+
+    for array in response.extended_metadata {
+        if array.extension_kind.enum_value() != Ok(ExtensionKind::TRACK_V4) {
+            continue;
+        }
+        for data in array.extension_data {
+            if !matches!(data.header.status_code, 0 | 200) {
+                continue;
+            }
+            let Some(any) = data.extension_data.as_ref() else {
+                continue;
+            };
+            let Ok(message) = librespot_protocol::metadata::Track::parse_from_bytes(&any.value)
+            else {
+                continue;
+            };
+            let Ok(track) = Track::try_from(&message) else {
+                continue;
+            };
+            out.insert(
+                data.entity_uri,
+                PlaylistTrack {
+                    uri: track.id.to_uri(),
+                    id: track.id.to_id(),
+                    name: track.name,
+                    artists: track
+                        .artists
+                        .iter()
+                        .map(|a| a.name.clone())
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    artist_list: track
+                        .artists
+                        .iter()
+                        .map(|a| TrackArtist {
+                            id: a.id.to_id(),
+                            name: a.name.clone(),
+                        })
+                        .collect(),
+                    album_id: track.album.id.to_id(),
+                    image: track
+                        .album
+                        .covers
+                        .first()
+                        .map(|c| format!("{IMAGE_HOST}{}", c.id))
+                        .unwrap_or_default(),
+                    album: track.album.name,
+                    duration_ms: track.duration,
+                },
+            );
+        }
+    }
+    Ok(out)
 }
 
 fn load_uri(player: &Arc<Player>, uri: &str) {
@@ -389,9 +653,9 @@ fn load_uri(player: &Arc<Player>, uri: &str) {
 
     match SpotifyId::from_base62(id_str) {
         Ok(id) => {
-            blog!("[bardo] load_uri: {uri}");
+            blog!("[bardo player] load_uri: {uri}");
             player.load(SpotifyUri::Track { id }, true, 0);
         }
-        Err(_) => blog!("[bardo] load_uri: invalid URI: {uri}"),
+        Err(_) => blog!("[bardo player] load_uri: invalid URI: {uri}"),
     }
 }

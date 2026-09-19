@@ -18,6 +18,12 @@ aside {
   padding: 18px 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  cursor: pointer;
+}
+
+.project-title:hover i,
+.project-title:hover h1 {
+  color: var(--accent);
 }
 
 .project-title h1 {
@@ -30,6 +36,31 @@ aside {
 .project-title i {
   font-size: 16px;
   color: var(--text-muted);
+}
+
+.sidebar-search-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.sidebar-search-button:hover {
+  color: var(--accent);
+}
+
+.sidebar-search-button i {
+  font-size: 13px;
+}
+
+.sidebar-search-button h1 {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
 }
 
 .playlists {

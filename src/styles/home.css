@@ -1,0 +1,139 @@
+.home-content {
+  width: 100%;
+  color: var(--text);
+}
+
+.shelf {
+  margin-bottom: 26px;
+}
+
+.shelf:first-child {
+  margin-top: 8px;
+}
+
+.shelf-title {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  padding: 0 4px 10px;
+}
+
+.shelf-row {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 2px 4px 8px;
+}
+
+.shelf-row::-webkit-scrollbar {
+  height: 4px;
+}
+
+.shelf-card {
+  width: 132px;
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: background 0.1s;
+}
+
+.shelf-card:hover {
+  background-color: var(--bg-hover);
+}
+
+.shelf-card-image {
+  width: 116px;
+  height: 116px;
+  object-fit: cover;
+  border-radius: 4px;
+  background-color: var(--bg-raised);
+  margin-bottom: 8px;
+}
+
+.shelf-card-round .shelf-card-image {
+  border-radius: 50%;
+}
+
+.shelf-card-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.shelf-card-subtitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.shelf-card-name,
+.shelf-card-subtitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.shelf-sk-line {
+  height: 9px;
+  margin-bottom: 5px;
+}
+
+.shelf-empty {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 20px 4px;
+}
+
+.shelf-tracks {
+  display: block;
+  overflow-x: hidden;
+  list-style: none;
+}
+
+.artist-content {
+  width: 100%;
+  color: var(--text);
+}
+
+.artist-hero {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  padding: 30px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.artist-hero-image img {
+  width: 180px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.artist-hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.artist-main-title {
+  font-size: 32px;
+  font-weight: 600;
+  color: white;
+  letter-spacing: -0.02em;
+  margin: 4px 0 6px;
+}
+
+.artist-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.artist-play-button {
+  align-self: flex-start;
+  font-size: 48px;
+}
