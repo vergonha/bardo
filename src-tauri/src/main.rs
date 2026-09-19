@@ -4,10 +4,31 @@ mod osmc;
 mod credentials;
 use player::LibrespotPlayer;
 use std::{sync::Arc};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::task::JoinHandle;
+
+/// set once in `main()`'s `.setup()`, so any log call anywhere in the app
+/// (even outside a tauri command) can also push the line to the front-end.
+static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
+
+/// prints to stderr and, once the app has started, emits a "bardo-log"
+/// event so the front-end can show the same line during login.
+pub fn bardo_log(msg: String) {
+    eprintln!("{msg}");
+    if let Some(app) = APP_HANDLE.get() {
+        let _ = app.emit("bardo-log", msg);
+    }
+}
+
+/// like `eprintln!`/`println!`, but also forwards the line to the front-end.
+#[macro_export]
+macro_rules! blog {
+    ($($arg:tt)*) => {
+        $crate::bardo_log(format!($($arg)*))
+    };
+}
 
 pub struct PlayerState(pub Arc<Mutex<Option<LibrespotPlayer>>>);
 
@@ -36,8 +57,8 @@ struct TokenPair {
 async fn exchange_refresh_token(refresh_token: &str) -> Result<TokenPair, String> {
     let client = reqwest::Client::new();
 
-    println!("[bardo] exchanging refresh token for access token...");
-    println!("[bardo] client_id: {}", spotify_client_id());
+    blog!("[bardo] exchanging refresh token for access token...");
+    blog!("[bardo] client_id: {}", spotify_client_id());
     let res = client
         .post("https://accounts.spotify.com/api/token")
         .form(&[
@@ -78,7 +99,7 @@ async fn exchange_refresh_token(refresh_token: &str) -> Result<TokenPair, String
 async fn refresh_webapi_token(
     state: Arc<Mutex<Option<WebApiAuth>>>,
 ) -> Result<(), String> {
-    eprintln!("[bardo] starting webapi refresh...");
+    blog!("[bardo] starting webapi refresh...");
 
     let refresh_token = {
         let guard = state.lock().unwrap();
@@ -97,7 +118,7 @@ async fn refresh_webapi_token(
 
     credentials::save(&pair.access_token, &pair.refresh_token, pair.expires_at);
 
-    eprintln!("[bardo] webapi refresh OK");
+    blog!("[bardo] webapi refresh OK");
 
     Ok(())
 }
@@ -178,7 +199,7 @@ async fn start_playback_session(
     let parts = match LibrespotPlayer::init_spirc(creds).await {
         Ok(parts) => parts,
         Err(e) if had_stored && allow_prompt => {
-            eprintln!(
+            blog!(
                 "[bardo] stored playback credentials failed ({e}); requesting a fresh playback sign-in"
             );
             let token = obtain_playback_access_token().await?;
@@ -198,14 +219,14 @@ fn spawn_webapi_refresh(state: State<'_, WebApiState>) {
     let mut task_guard = state.refresh_task.lock().unwrap();
 
     if task_guard.is_some() {
-        eprintln!("[bardo] refresh loop already running, skipping spawn");
+        blog!("[bardo] refresh loop already running, skipping spawn");
         return;
     }
 
     let auth_state = state.auth.clone();
 
     let handle = tokio::spawn(async move {
-        eprintln!("[bardo] started webapi refresh loop");
+        blog!("[bardo] started webapi refresh loop");
 
         loop {
             let sleep_duration = {
@@ -232,14 +253,14 @@ fn spawn_webapi_refresh(state: State<'_, WebApiState>) {
 
             tokio::time::sleep(sleep_duration).await;
 
-            eprintln!("[bardo] triggering webapi refresh...");
+            blog!("[bardo] triggering webapi refresh...");
 
             match refresh_webapi_token(auth_state.clone()).await {
                 Ok(_) => {
-                    eprintln!("[bardo] refresh cycle completed");
+                    blog!("[bardo] refresh cycle completed");
                 }
                 Err(e) => {
-                    eprintln!("[bardo] refresh failed: {e}");
+                    blog!("[bardo] refresh failed: {e}");
                 }
             }
         }
@@ -250,17 +271,17 @@ fn spawn_webapi_refresh(state: State<'_, WebApiState>) {
 
 async fn try_restore_session(app: AppHandle) {
     let Some(saved) = credentials::load() else {
-        eprintln!("[bardo] no saved session found");
+        blog!("[bardo] no saved session found");
         return;
     };
 
-    eprintln!("[bardo] restoring saved session...");
+    blog!("[bardo] restoring saved session...");
 
     let pair = if saved.expires_at <= Instant::now() {
         match exchange_refresh_token(&saved.refresh_token).await {
             Ok(pair) => pair,
             Err(e) => {
-                eprintln!("[bardo] failed to refresh saved session: {e}");
+                blog!("[bardo] failed to refresh saved session: {e}");
                 return;
             }
         }
@@ -287,7 +308,7 @@ async fn try_restore_session(app: AppHandle) {
         Ok(Some((session, player, mixer, spirc, spirc_task))) => {
             tokio::spawn(async move {
                 spirc_task.await;
-                eprintln!("[bardo] spirc task ended");
+                blog!("[bardo] spirc task ended");
             });
 
             let p = LibrespotPlayer::from_parts(session, player, mixer, spirc, app.clone());
@@ -296,14 +317,14 @@ async fn try_restore_session(app: AppHandle) {
 
             spawn_webapi_refresh(web_state);
 
-            eprintln!("[bardo] session restored");
+            blog!("[bardo] session restored");
         }
         Ok(None) => {
-            eprintln!("[bardo] no playback credentials saved yet; sign in again to enable playback");
+            blog!("[bardo] no playback credentials saved yet; sign in again to enable playback");
             spawn_webapi_refresh(web_state);
         }
         Err(e) => {
-            eprintln!("[bardo] failed to restore playback session: {e}");
+            blog!("[bardo] failed to restore playback session: {e}");
         }
     }
 }
@@ -314,8 +335,8 @@ async fn run_spotify_login(
     player_state: State<'_, PlayerState>,
     app: AppHandle,
 ) -> Result<(), String> {
-    eprintln!("[bardo] run_spotify_login called");
-    eprintln!("[bardo] client_id: {}", spotify_client_id());
+    blog!("[bardo] run_spotify_login called");
+    blog!("[bardo] client_id: {}", spotify_client_id());
 
     let token = tokio::task::spawn_blocking(|| {
         librespot_oauth::OAuthClientBuilder::new(
@@ -332,7 +353,7 @@ async fn run_spotify_login(
     .await
     .map_err(|e| format!("Task failed: {e}"))??;
 
-    eprintln!("[bardo] OAuth succeeded");
+    blog!("[bardo] OAuth succeeded");
 
     let auth = WebApiAuth {
         access_token: token.access_token.clone(),
@@ -344,7 +365,7 @@ async fn run_spotify_login(
 
     credentials::save(&token.access_token, &token.refresh_token, token.expires_at);
 
-    eprintln!("[bardo] initializing librespot session...");
+    blog!("[bardo] initializing librespot session...");
 
     let Some((session, player, mixer, spirc, spirc_task)) = start_playback_session(true).await?
     else {
@@ -353,7 +374,7 @@ async fn run_spotify_login(
 
     tokio::spawn(async move {
         spirc_task.await;
-        eprintln!("[bardo] spirc task ended");
+        blog!("[bardo] spirc task ended");
     });
 
     let p = LibrespotPlayer::from_parts(
@@ -368,7 +389,7 @@ async fn run_spotify_login(
 
     spawn_webapi_refresh(web_state.clone());
 
-    eprintln!("[bardo] login complete");
+    blog!("[bardo] login complete");
 
     Ok(())
 }
@@ -394,7 +415,7 @@ fn player_play_track(
     uri: String,
     player_state: State<'_, PlayerState>,
 ) -> Result<(), String> {
-    eprintln!("[bardo] play_track: {uri}");
+    blog!("[bardo] play_track: {uri}");
 
     player_state
         .0
@@ -409,7 +430,7 @@ fn player_play_track(
 
 #[tauri::command]
 fn player_pause(player_state: State<'_, PlayerState>) -> Result<(), String> {
-    eprintln!("[bardo] pause()");
+    blog!("[bardo] pause()");
 
     player_state
         .0
@@ -424,7 +445,7 @@ fn player_pause(player_state: State<'_, PlayerState>) -> Result<(), String> {
 
 #[tauri::command]
 fn player_resume(player_state: State<'_, PlayerState>) -> Result<(), String> {
-    eprintln!("[bardo] resume()");
+    blog!("[bardo] resume()");
 
     player_state
         .0
@@ -442,7 +463,7 @@ fn player_seek(
     position_ms: u32,
     player_state: State<'_, PlayerState>,
 ) -> Result<(), String> {
-    eprintln!("[bardo] seek({position_ms}ms)");
+    blog!("[bardo] seek({position_ms}ms)");
 
     player_state
         .0
@@ -461,7 +482,7 @@ fn player_set_volume(
     player_state: State<'_, PlayerState>,
 ) -> Result<(), String> {
     let v = (volume * u16::MAX as f64).clamp(0.0, u16::MAX as f64) as u16;
-    eprintln!("[bardo] set_volume({volume} -> raw {v})");
+    blog!("[bardo] set_volume({volume} -> raw {v})");
 
     player_state
         .0
@@ -484,6 +505,7 @@ fn main() {
         })
         .setup(|app| {
             let app_handle = app.handle().clone();
+            let _ = APP_HANDLE.set(app_handle.clone());
             tauri::async_runtime::spawn(try_restore_session(app_handle));
             Ok(())
         })

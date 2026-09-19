@@ -1,3 +1,4 @@
+use crate::blog;
 use keyring::Entry;
 use librespot_core::authentication::Credentials;
 use serde::{Deserialize, Serialize};
@@ -29,13 +30,13 @@ pub fn save(access_token: &str, refresh_token: &str, expires_at: Instant) {
     };
 
     let Ok(json) = serde_json::to_string(&stored) else {
-        eprintln!("[bardo] failed to serialize credentials");
+        blog!("[bardo] failed to serialize credentials");
         return;
     };
 
     match Entry::new(SERVICE, USER).and_then(|entry| entry.set_password(&json)) {
-        Ok(()) => eprintln!("[bardo] saved credentials to the system credential store"),
-        Err(e) => eprintln!("[bardo] failed to save credentials: {e}"),
+        Ok(()) => blog!("[bardo] saved credentials to the system credential store"),
+        Err(e) => blog!("[bardo] failed to save credentials: {e}"),
     }
 }
 
@@ -65,13 +66,13 @@ pub fn load() -> Option<SavedAuth> {
 /// reused instead of calling `credentials::with_access_token` again.
 pub fn save_playback(credentials: &Credentials) {
     let Ok(json) = serde_json::to_string(credentials) else {
-        eprintln!("[bardo] failed to serialize playback credentials");
+        blog!("[bardo] failed to serialize playback credentials");
         return;
     };
 
     match Entry::new(SERVICE, PLAYBACK_USER).and_then(|entry| entry.set_password(&json)) {
-        Ok(()) => eprintln!("[bardo] saved playback credentials to the system credential store"),
-        Err(e) => eprintln!("[bardo] failed to save playback credentials: {e}"),
+        Ok(()) => blog!("[bardo] saved playback credentials to the system credential store"),
+        Err(e) => blog!("[bardo] failed to save playback credentials: {e}"),
     }
 }
 

@@ -1,14 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { loadRoute } from "../../lib/router";
-
-const statusEl = document.querySelector<HTMLElement>("#login-status");
-
-function setStatus(msg: string) {
-  if (statusEl) statusEl.textContent = msg;
-}
 
 function navigateTo(page: string) {
   loadRoute(page);
+}
+
+function appendLog(line: string) {
+  const log = document.querySelector<HTMLElement>("#login-log");
+  if (!log) return;
+  log.textContent += `${line}\n`;
+  log.scrollTop = log.scrollHeight;
 }
 
 async function init() {
@@ -17,7 +19,11 @@ async function init() {
     login();
   });
 
-  setStatus("Ready to login");
+  await listen<string>("bardo-log", (event) => {
+    appendLog(event.payload);
+  });
+
+  appendLog("ready to login");
 }
 
 async function login() {
@@ -25,7 +31,8 @@ async function login() {
     await invoke<string>("run_spotify_login");
     navigateTo("dashboard");
   } catch (e) {
-    setStatus(`Error: ${JSON.stringify(e)}`);
+    const message = typeof e === "string" ? e : JSON.stringify(e);
+    appendLog(`error: ${message}`);
   }
 }
 

@@ -21,6 +21,7 @@ use librespot_playback::{
 };
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
+use crate::blog;
 
 pub const SCOPES: &[&str] = &[
     "user-read-email",
@@ -74,7 +75,7 @@ impl LibrespotPlayer {
         spirc: Spirc,
         app_handle: AppHandle,
     ) -> Self {
-        eprintln!("[bardo] building LibrespotPlayer");
+        blog!("[bardo] building LibrespotPlayer");
         let spirc = Arc::new(spirc);
 
         #[cfg(target_os = "windows")]
@@ -105,7 +106,7 @@ impl LibrespotPlayer {
 
         Self::spawn_position_ticker(app_handle, inner.clone());
 
-        eprintln!("[bardo] LibrespotPlayer ready");
+        blog!("[bardo] LibrespotPlayer ready");
 
         Self {
             player,
@@ -132,12 +133,12 @@ impl LibrespotPlayer {
         let mut last_err = String::new();
 
         for attempt in 1u8..=5 {
-            eprintln!("[bardo] Attempt {attempt}/5: creating fresh session...");
+            blog!("[bardo] Attempt {attempt}/5: creating fresh session...");
 
             let session = Session::new(SessionConfig::default(), None);
             let mixer = Arc::new(SoftMixer::open(MixerConfig::default()).unwrap());
 
-            eprintln!("[bardo] Attempt {attempt}/5: creating player...");
+            blog!("[bardo] Attempt {attempt}/5: creating player...");
 
             let player = Player::new(
                 PlayerConfig::default(),
@@ -151,7 +152,7 @@ impl LibrespotPlayer {
                 ..Default::default()
             };
 
-            eprintln!("[bardo] Attempt {attempt}/5: starting Spirc...");
+            blog!("[bardo] Attempt {attempt}/5: starting Spirc...");
 
             match Spirc::new(
                 connect_config,
@@ -163,7 +164,7 @@ impl LibrespotPlayer {
             .await
             {
                 Ok((spirc, task)) => {
-                    eprintln!(
+                    blog!(
                         "[bardo] Spirc started on attempt {attempt}. Username: {:?}",
                         session.username()
                     );
@@ -171,7 +172,7 @@ impl LibrespotPlayer {
                 }
                 Err(e) => {
                     last_err = e.to_string();
-                    eprintln!("[bardo] Spirc failed (attempt {attempt}): {e}");
+                    blog!("[bardo] Spirc failed (attempt {attempt}): {e}");
                     tokio::time::sleep(Duration::from_millis(500 * attempt as u64)).await;
                 }
             }
@@ -188,12 +189,12 @@ impl LibrespotPlayer {
         media_controls: Arc<Mutex<MediaControls>>,
     ) {
         tokio::spawn(async move {
-            eprintln!("[bardo] Event loop started.");
+            blog!("[bardo] Event loop started.");
 
             while let Some(event) = event_channel.recv().await {
                 match event {
                     PlayerEvent::TrackChanged { audio_item } => {
-                        eprintln!("[bardo] TrackChanged: {}", audio_item.uri);
+                        blog!("[bardo] TrackChanged: {}", audio_item.uri);
 
                         if let Ok(track) =
                             Track::get(&session, &audio_item.track_id).await
@@ -231,7 +232,7 @@ impl LibrespotPlayer {
                                 uri: audio_item.uri.clone(),
                             };
 
-                            eprintln!(
+                            blog!(
                                 "[bardo] Emitting track_changed: {} - {}",
                                 info.name, artists
                             );
@@ -256,7 +257,7 @@ impl LibrespotPlayer {
                         }
                     }
                     PlayerEvent::Playing { position_ms, .. } => {
-                        eprintln!("[bardo] Playing at {position_ms}ms");
+                        blog!("[bardo] Playing at {position_ms}ms");
 
                         let mut s = inner.lock().unwrap();
                         s.position_ms = position_ms;
@@ -271,7 +272,7 @@ impl LibrespotPlayer {
                         });
                     }
                     PlayerEvent::Paused { position_ms, .. } => {
-                        eprintln!("[bardo] Paused at {position_ms}ms");
+                        blog!("[bardo] Paused at {position_ms}ms");
 
                         let mut s = inner.lock().unwrap();
                         s.position_ms = position_ms;
@@ -288,7 +289,7 @@ impl LibrespotPlayer {
                         });
                     }
                     PlayerEvent::Stopped { .. } => {
-                        eprintln!("[bardo] Stopped.");
+                        blog!("[bardo] Stopped.");
 
                         let mut s = inner.lock().unwrap();
                         s.position_ms = 0;
@@ -304,7 +305,7 @@ impl LibrespotPlayer {
                         });
                     }
                     PlayerEvent::EndOfTrack { .. } => {
-                        eprintln!("[bardo] EndOfTrack.");
+                        blog!("[bardo] EndOfTrack.");
 
                         let mut s = inner.lock().unwrap();
                         s.position_ms = 0;
@@ -324,7 +325,7 @@ impl LibrespotPlayer {
                 }
             }
 
-            eprintln!("[bardo] WARNING: event_channel closed — event loop exited");
+            blog!("[bardo] WARNING: event_channel closed — event loop exited");
         });
     }
 
@@ -348,22 +349,22 @@ impl LibrespotPlayer {
     }
 
     pub fn play_track(&self, uri: String) {
-        eprintln!("[bardo] play_track: {uri}");
+        blog!("[bardo] play_track: {uri}");
         load_uri(&self.player, &uri);
     }
 
     pub fn pause(&self) {
-        eprintln!("[bardo] pause()");
+        blog!("[bardo] pause()");
         self.player.pause();
     }
 
     pub fn resume(&self) {
-        eprintln!("[bardo] resume()");
+        blog!("[bardo] resume()");
         self.player.play();
     }
 
     pub fn seek(&self, position_ms: u32) {
-        eprintln!("[bardo] seek({position_ms}ms)");
+        blog!("[bardo] seek({position_ms}ms)");
         self.player.seek(position_ms);
 
         let mut s = self.inner.lock().unwrap();
@@ -373,12 +374,12 @@ impl LibrespotPlayer {
 
     pub fn set_volume(&self, volume: f64) {
         let v = (volume * u16::MAX as f64).clamp(0.0, u16::MAX as f64) as u16;
-        eprintln!("[bardo] set_volume({volume} -> raw {v})");
+        blog!("[bardo] set_volume({volume} -> raw {v})");
         self.mixer.set_volume(v);
     }
 
     pub fn stop(&self) {
-        eprintln!("[bardo] stop()");
+        blog!("[bardo] stop()");
         self.player.stop();
     }
 }
@@ -388,9 +389,9 @@ fn load_uri(player: &Arc<Player>, uri: &str) {
 
     match SpotifyId::from_base62(id_str) {
         Ok(id) => {
-            eprintln!("[bardo] load_uri: {uri}");
+            blog!("[bardo] load_uri: {uri}");
             player.load(SpotifyUri::Track { id }, true, 0);
         }
-        Err(_) => eprintln!("[bardo] load_uri: invalid URI: {uri}"),
+        Err(_) => blog!("[bardo] load_uri: invalid URI: {uri}"),
     }
 }
