@@ -94,6 +94,7 @@ sudo apt install libwebkit2gtk-4.1-dev \
 - [x] persist both sessions so login survives a restart
 - [x] pull playlists straight from librespot's internal mercury/protobuf apis (rootlist + extended metadata) instead of only the public web api, so your own playlists load even when spotify rate limits or throttles the web api
 - [x] auto reconnect playback when the spirc session dies instead of leaving it dead until a manual sign-in
+- [x] route playback through spirc instead of calling librespot's `player` directly, so spotify knows what bardo is playing. now the track shows up in the web api, on your phone and in discord's spotify rich presence
 - [x] live log panel on the login screen to see what the backend is doing during auth
 - [ ] apply the same mercury/protobuf approach to more of the app (search, artist pages) to depend less on the web api
 - [ ] handle mercury/protobuf schema drift if spotify changes those internal protocols too

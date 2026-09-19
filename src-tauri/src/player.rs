@@ -3,10 +3,10 @@ use crate::osmc::init_media_controls;
 use tauri::Manager;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use librespot_connect::{ConnectConfig, Spirc};
+use librespot_connect::{ConnectConfig, LoadRequest, LoadRequestOptions, Spirc};
 use librespot_core::{
     authentication::Credentials,
-    config::SessionConfig,
+    config::{DeviceType, SessionConfig},
     session::Session,
     spotify_id::SpotifyId,
     spotify_uri::SpotifyUri,
@@ -148,7 +148,14 @@ impl LibrespotPlayer {
         for attempt in 1u8..=5 {
             blog!("[bardo player] Attempt {attempt}/5: creating fresh session...");
 
-            let session = Session::new(SessionConfig::default(), None);
+            // bardo drives its own queue from the front-end and loads one
+            // track at a time, so spotify must not treat the end of that
+            // one-track context as a cue to start playing recommendations.
+            let session_config = SessionConfig {
+                autoplay: Some(false),
+                ..SessionConfig::default()
+            };
+            let session = Session::new(session_config, None);
             let mixer = Arc::new(SoftMixer::open(MixerConfig::default()).unwrap());
 
             blog!("[bardo player] Attempt {attempt}/5: creating player...");
@@ -161,7 +168,8 @@ impl LibrespotPlayer {
             );
 
             let connect_config = ConnectConfig {
-                name: "Bardo player".to_string(),
+                name: "bardo".to_string(),
+                device_type: DeviceType::Computer,
                 ..Default::default()
             };
 
@@ -364,39 +372,57 @@ impl LibrespotPlayer {
         })
     }
 
-    pub fn play_track(&self, uri: String) {
+    /// playback goes through spirc rather than straight to the `player`.
+    /// so the track shows up in the web api, on the user's other clients, 
+    /// and in anything reading those; 
+    ///
+    /// which  is how discord's spotify rich presence sees it btw
+    pub fn play_track(&self, uri: String) -> Result<(), String> {
         blog!("[bardo player] play_track: {uri}");
-        load_uri(&self.player, &uri);
+
+        self.spirc
+            .activate()
+            .map_err(|e| format!("could not become the active device: {e}"))?;
+
+        self.spirc
+            .load(LoadRequest::from_tracks(
+                vec![uri],
+                LoadRequestOptions {
+                    start_playing: true,
+                    ..Default::default()
+                },
+            ))
+            .map_err(|e| format!("load failed: {e}"))
     }
 
-    pub fn pause(&self) {
+    pub fn pause(&self) -> Result<(), String> {
         blog!("[bardo player] pause()");
-        self.player.pause();
+        self.spirc.pause().map_err(|e| e.to_string())
     }
 
-    pub fn resume(&self) {
+    pub fn resume(&self) -> Result<(), String> {
         blog!("[bardo player] resume()");
-        self.player.play();
+        self.spirc.play().map_err(|e| e.to_string())
     }
 
-    pub fn seek(&self, position_ms: u32) {
+    pub fn seek(&self, position_ms: u32) -> Result<(), String> {
         blog!("[bardo player] seek({position_ms}ms)");
-        self.player.seek(position_ms);
+        self.spirc
+            .set_position_ms(position_ms)
+            .map_err(|e| e.to_string())?;
 
         let mut s = self.inner.lock().unwrap();
         s.position_ms = position_ms;
         s.started_at = Some(Instant::now());
+        Ok(())
     }
 
-    pub fn set_volume(&self, volume: f64) {
+    pub fn set_volume(&self, volume: f64) -> Result<(), String> {
         let v = (volume * u16::MAX as f64).clamp(0.0, u16::MAX as f64) as u16;
         blog!("[bardo player] set_volume({volume} -> raw {v})");
-        self.mixer.set_volume(v);
-    }
 
-    pub fn stop(&self) {
-        blog!("[bardo player] stop()");
-        self.player.stop();
+        self.mixer.set_volume(v);
+        self.spirc.set_volume(v).map_err(|e| e.to_string())
     }
 }
 
@@ -654,16 +680,4 @@ async fn track_metadata(
         }
     }
     Ok(out)
-}
-
-fn load_uri(player: &Arc<Player>, uri: &str) {
-    let id_str = uri.split(':').nth(2).unwrap_or("");
-
-    match SpotifyId::from_base62(id_str) {
-        Ok(id) => {
-            blog!("[bardo player] load_uri: {uri}");
-            player.load(SpotifyUri::Track { id }, true, 0);
-        }
-        Err(_) => blog!("[bardo player] load_uri: invalid URI: {uri}"),
-    }
 }

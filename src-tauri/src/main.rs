@@ -542,7 +542,7 @@ fn player_play_track(
         .unwrap()
         .as_ref()
         .ok_or("Player not started")?
-        .play_track(uri);
+        .play_track(uri)?;
 
     Ok(())
 }
@@ -557,7 +557,7 @@ fn player_pause(player_state: State<'_, PlayerState>) -> Result<(), String> {
         .unwrap()
         .as_ref()
         .ok_or("Player not started")?
-        .pause();
+        .pause()?;
 
     Ok(())
 }
@@ -572,7 +572,7 @@ fn player_resume(player_state: State<'_, PlayerState>) -> Result<(), String> {
         .unwrap()
         .as_ref()
         .ok_or("Player not started")?
-        .resume();
+        .resume()?;
 
     Ok(())
 }
@@ -590,7 +590,7 @@ fn player_seek(
         .unwrap()
         .as_ref()
         .ok_or("Player not started")?
-        .seek(position_ms);
+        .seek(position_ms)?;
 
     Ok(())
 }
@@ -609,7 +609,7 @@ fn player_set_volume(
         .unwrap()
         .as_ref()
         .ok_or("Player not started")?
-        .set_volume(volume);
+        .set_volume(volume)?;
 
     Ok(())
 }
