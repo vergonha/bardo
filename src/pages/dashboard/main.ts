@@ -895,8 +895,8 @@ function handleSearchArtists(artists: any) {
     const name = document.createElement("p");
     name.textContent = artist.name;
 
-    // const artists = document.createElement("p");
-    // artists.textContent = track.artists.map((a: any) => a.name).join(", ");
+    // const artists = document.createelement("p");
+    // artists.textcontent = track.artists.map((a: any) => a.name).join(", ");
 
     div.append(icon, name);
     div.onclick = () => showArtistTopTracks(artist.name);

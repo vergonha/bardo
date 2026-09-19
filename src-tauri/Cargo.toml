@@ -28,9 +28,11 @@ toml = "0.8"
 dirs = "5"
 dotenvy = "0.15"
 souvlaki = "0.8.3"
+keyring = "3"
 
 librespot-core     = { git = "https://github.com/librespot-org/librespot", branch = "dev" }
 librespot-playback = { git = "https://github.com/librespot-org/librespot", branch = "dev", features = ["rodio-backend"] }
 librespot-metadata = { git = "https://github.com/librespot-org/librespot", branch = "dev" }
 librespot-connect  = { git = "https://github.com/librespot-org/librespot", branch = "dev" }
 librespot-oauth    = { git = "https://github.com/librespot-org/librespot", branch = "dev" }
+librespot-protocol = { git = "https://github.com/librespot-org/librespot", branch = "dev" }

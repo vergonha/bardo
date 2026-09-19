@@ -23,7 +23,6 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 pub const SCOPES: &[&str] = &[
-    "streaming",
     "user-read-email",
     "user-read-private",
     "app-remote-control",
