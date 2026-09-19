@@ -1,15 +1,20 @@
 <div class="main-content">
     <aside>
-        <div class="project-title">
+        <div class="project-title" id="home-link" title="Home">
             <i class="fa-brands fa-spotify"></i>
             <h1>bardo</h1>
+        </div>
+        <div class="sidebar-search-button" id="search-link" title="search">
+            <i class="fa fa-search"></i>
+            <h1>search</h1>
         </div>
         <div class="playlists">
             <ul id="playlist-list"></ul>
         </div>
     </aside>
     <main>
-        <div class="playlist-content">
+        <div class="home-content"></div>
+        <div class="playlist-content" style="display: none">
             <div class="playlist">
                 <div class="playlist-image">
                     <img class="playlist-image-object" src="" alt="" />
@@ -31,23 +36,45 @@
             </div>
             <ul class="playlist-tracks"></ul>
         </div>
-    </main>
-    <article>
-        <div class="search-content" id="search-panel">
-            <div class="search-container">
-                <input type="text" id="search" placeholder="Search.." />
-                <i class="fa fa-search"></i>
-            </div>
-            <div class="search-results">
-                <div class="results">
-                    <div class="artists-results"></div>
-                    <div class="playlists-results"></div>
-                    <div class="tracks-results"></div>
-                    <div class="albuns-results"></div>
+        <div class="artist-content" style="display: none">
+            <div class="artist-hero">
+                <div class="artist-hero-image">
+                    <img class="artist-image-object" src="" alt="" />
+                </div>
+                <div class="artist-hero-info">
+                    <span class="playlist-label">ARTIST</span>
+                    <h1 class="artist-main-title"></h1>
+                    <p class="artist-meta"></p>
+                    <a class="play-button artist-play-button" style="display: none">
+                        <i class="fa-solid fa-circle-play"></i>
+                    </a>
                 </div>
             </div>
+            <div class="artist-shelves"></div>
         </div>
-        <div class="queue-panel" id="queue-panel" style="display: none">
+        <div class="search-page" style="display: none">
+            <div class="search-page-input">
+                <i class="fa fa-search"></i>
+                <input type="text" id="search" placeholder="What do you want to listen to?" />
+            </div>
+            <div class="search-page-results" style="display: none">
+                <section class="shelf">
+                    <h2 class="shelf-title">Songs</h2>
+                    <div class="tracks-results"></div>
+                </section>
+                <section class="shelf">
+                    <h2 class="shelf-title">Artists</h2>
+                    <div class="artists-results"></div>
+                </section>
+                <section class="shelf">
+                    <h2 class="shelf-title">Albums</h2>
+                    <div class="albums-results"></div>
+                </section>
+            </div>
+        </div>
+    </main>
+    <article style="display: flex">
+        <div class="queue-panel" id="queue-panel">
             <div class="queue-header">
                 <h3>Queue</h3>
                 <span id="queue-count">0 tracks</span>
@@ -87,7 +114,7 @@
             </div>
         </div>
         <div class="volume-slider">
-            <button id="queue-toggle" title="Toggle queue">
+            <button id="queue-toggle" class="active" title="Toggle queue">
                 <i class="fa-solid fa-list"></i>
             </button>
             <i class="fa-solid fa-volume-high"></i>

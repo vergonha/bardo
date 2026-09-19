@@ -93,8 +93,7 @@
     flex-shrink: 0;
 }
 
-.search-track-skeleton,
-.search-artist-skeleton {
+.search-track-skeleton {
     display: flex;
     align-items: center;
     gap: 8px;

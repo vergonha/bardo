@@ -147,6 +147,14 @@ main {
     opacity: 40%;
 }
 
+.entity-link {
+    cursor: pointer;
+}
+
+.entity-link:hover {
+    text-decoration: underline;
+}
+
 .playlist-track-item p {
     overflow: hidden;
     white-space: nowrap;
@@ -203,10 +211,17 @@ main {
     padding: 8px 6px;
     cursor: pointer;
     list-style: none;
+    user-select: none;
 }
 
 .playlist-tracks .track li:hover {
     background-color: var(--bg-hover);
+}
+
+.track-row-loading {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .playlist-tracks li img {
@@ -277,10 +292,25 @@ main {
     flex-shrink: 0;
 }
 
+.sidebar-playlist-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+}
+
 .sidebar-playlist-name {
     font-size: 12px;
     font-weight: 500;
     color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-playlist-meta {
+    font-size: 11px;
+    color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
