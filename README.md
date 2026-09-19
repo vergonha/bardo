@@ -80,6 +80,7 @@ sudo apt install libwebkit2gtk-4.1-dev \
 - [x] playback queue
 - [x] smtc bridge to control playback with windows bindings
 - [ ] mpris bridge to control playback with linux bindings
+- [ ] fix session persistence on linux (`keyring` only has the `windows-native` backend enabled; needs `linux-native`/`sync-secret-service` too)
 - [ ] new shortcuts, eg control volume with mouse scroll when focused on the slider
 - [ ] test and merge the pr that fixes [this bug](https://github.com/RustAudio/rodio/issues/463) on windows
 - [x] function to render and listen to songs by artist

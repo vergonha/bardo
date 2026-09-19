@@ -393,6 +393,14 @@ async fn run_spotify_login(
     Ok(())
 }
 
+/// fast, local check (no network) so the login screen knows whether it's
+/// worth waiting on `try_restore_session` instead of showing the login
+/// button right away for a first-time user.
+#[tauri::command]
+fn has_saved_credentials() -> bool {
+    credentials::load().is_some()
+}
+
 #[tauri::command]
 fn get_access_token(web_state: State<'_, WebApiState>) -> Result<String, String> {
     web_state
@@ -407,6 +415,7 @@ fn get_access_token(web_state: State<'_, WebApiState>) -> Result<String, String>
 #[tauri::command]
 fn get_client_id() -> String {
     spotify_client_id().to_string()
+    
 }
 
 #[tauri::command]
@@ -510,6 +519,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             run_spotify_login,
+            has_saved_credentials,
             get_access_token,
             get_client_id,
             player_play_track,

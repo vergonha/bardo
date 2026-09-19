@@ -13,6 +13,18 @@ function appendLog(line: string) {
   log.scrollTop = log.scrollHeight;
 }
 
+async function hasRestoredSession(): Promise<boolean> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    try {
+      await invoke<string>("get_access_token");
+      return true;
+    } catch {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  return false;
+}
+
 async function init() {
   document.querySelector("#btn-login")?.addEventListener("click", (e) => {
     e.preventDefault();
@@ -22,6 +34,14 @@ async function init() {
   await listen<string>("bardo-log", (event) => {
     appendLog(event.payload);
   });
+
+  if (await invoke<boolean>("has_saved_credentials")) {
+    appendLog("checking for a saved session...");
+    if (await hasRestoredSession()) {
+      navigateTo("dashboard");
+      return;
+    }
+  }
 
   appendLog("ready to login");
 }

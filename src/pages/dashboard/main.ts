@@ -873,6 +873,7 @@ async function loadPlaylists() {
 
     showPlaylist(data.items[0].id);
   } catch {
+    
     ul.innerHTML = "";
     showToast("Could not load playlists.", true);
   }
