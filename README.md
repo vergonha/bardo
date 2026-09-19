@@ -86,7 +86,7 @@ sudo apt install libwebkit2gtk-4.1-dev \
 - [ ] mpris bridge to control playback with linux bindings
 - [ ] fix session persistence on linux (`keyring` only has the `windows-native` backend enabled; needs `linux-native`/`sync-secret-service` too)
 - [ ] new shortcuts, eg control volume with mouse scroll when focused on the slider
-- [ ] test and merge the pr that fixes [this bug](https://github.com/RustAudio/rodio/issues/463) on windows
+- [x] work around [this rodio/cpal bug](https://github.com/RustAudio/rodio/issues/463) on windows (audio keeps playing on the old output device after you switch it). bardo ships its own librespot sink (`src-tauri/src/sink.rs`) that reopens just the audio stream when the default output changes or the current one dies
 - [x] function to render and listen to songs by artist
 - [ ] rewrite the css and switch it to something more readable
 - [x] fix login/playback breaking after spotify changed their auth api

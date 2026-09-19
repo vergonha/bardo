@@ -1474,6 +1474,23 @@ volume.addEventListener("change", (e) => {
   playerCmd("player_set_volume", { volume: Number(el.value) / 100 });
 });
 
+// an empty value means "follow whatever windows calls the default output";
+// picking a device pins playback to it instead.
+const outputDevice = document.querySelector<HTMLSelectElement>("#output-device")!;
+outputDevice.addEventListener("change", () => {
+  invoke("set_output_device", { name: outputDevice.value || null });
+});
+
+async function loadOutputDevices() {
+  const [devices, selected] = await Promise.all([
+    invoke<string[]>("list_output_devices"),
+    invoke<string | null>("get_output_device"),
+  ]);
+  outputDevice.length = 1;
+  for (const name of devices) outputDevice.add(new Option(name, name));
+  outputDevice.value = selected ?? "";
+}
+
 const seekEl = document.querySelector<HTMLInputElement>("#seek")!;
 const seekTimeEl =
   document.querySelector(".track-controller")!.firstElementChild!;
@@ -1610,6 +1627,11 @@ export function init() {
   volume.value = String(initialVolume);
   volume.style.backgroundSize = `${initialVolume}% 100%`;
   playerCmd("player_set_volume", { volume: initialVolume / 100 });
+
+  loadOutputDevices();
+  // devices come and go while the app is open, so refresh the list when the
+  // user is about to look at it.
+  outputDevice.addEventListener("mousedown", loadOutputDevices);
 
   document.addEventListener("keydown", async (event) => {
     if (event.code !== "Space") return;

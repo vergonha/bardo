@@ -2,6 +2,7 @@
 mod player;
 mod osmc;
 mod credentials;
+mod sink;
 use player::LibrespotPlayer;
 use std::{sync::Arc};
 use std::sync::{Mutex, OnceLock};
@@ -287,6 +288,22 @@ fn reconnect_playback(app: AppHandle) {
         blog!("[bardo   main] giving up on playback; sign in again to enable it");
         credentials::clear_playback();
     });
+}
+
+#[tauri::command]
+async fn set_output_device(name: Option<String>) {
+    sink::set_preferred(name);
+}
+
+/// `None` means the sink follows whatever Windows calls the default output.
+#[tauri::command]
+async fn get_output_device() -> Option<String> {
+    sink::preferred()
+}
+
+#[tauri::command]
+async fn list_output_devices() -> Vec<String> {
+    sink::output_devices()
 }
 
 fn spawn_webapi_refresh(state: State<'_, WebApiState>) {
@@ -623,6 +640,9 @@ fn main() {
             player_resume,
             player_seek,
             player_set_volume,
+            list_output_devices,
+            get_output_device,
+            set_output_device,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run app");

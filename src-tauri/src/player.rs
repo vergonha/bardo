@@ -14,8 +14,7 @@ use librespot_core::{
 use librespot_metadata::{Metadata, Track};
 use librespot_playback::mixer::Mixer;
 use librespot_playback::{
-    audio_backend,
-    config::{AudioFormat, PlayerConfig},
+    config::PlayerConfig,
     mixer::{softmixer::SoftMixer, MixerConfig},
     player::{Player, PlayerEvent},
 };
@@ -68,6 +67,13 @@ pub struct LibrespotPlayer {
     pub spirc: Arc<Spirc>,
     session: Session,
     inner: Arc<Mutex<PlayerInner>>,
+    ticker_handle: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for LibrespotPlayer {
+    fn drop(&mut self) {
+        self.ticker_handle.abort();
+    }
 }
 
 impl LibrespotPlayer {
@@ -107,7 +113,7 @@ impl LibrespotPlayer {
             media_controls.clone(),
         );
 
-        Self::spawn_position_ticker(app_handle, inner.clone());
+        let ticker_handle = Self::spawn_position_ticker(app_handle, inner.clone());
 
         blog!("[bardo player] LibrespotPlayer ready");
 
@@ -117,6 +123,7 @@ impl LibrespotPlayer {
             spirc,
             session,
             inner,
+            ticker_handle,
         }
     }
 
@@ -136,8 +143,6 @@ impl LibrespotPlayer {
         ),
         String,
     > {
-        let audio_format = AudioFormat::default();
-        let backend = audio_backend::find(None).unwrap();
         let mut last_err = String::new();
 
         for attempt in 1u8..=5 {
@@ -152,7 +157,7 @@ impl LibrespotPlayer {
                 PlayerConfig::default(),
                 session.clone(),
                 mixer.get_soft_volume(),
-                move || backend(None, audio_format),
+                || Box::new(crate::sink::FollowingSink::new()),
             );
 
             let connect_config = ConnectConfig {
@@ -337,7 +342,10 @@ impl LibrespotPlayer {
         });
     }
 
-    fn spawn_position_ticker(app: AppHandle, inner: Arc<Mutex<PlayerInner>>) {
+    fn spawn_position_ticker(
+        app: AppHandle,
+        inner: Arc<Mutex<PlayerInner>>,
+    ) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(1));
 
@@ -353,7 +361,7 @@ impl LibrespotPlayer {
                     let _ = app.emit("position_changed", pos);
                 }
             }
-        });
+        })
     }
 
     pub fn play_track(&self, uri: String) {

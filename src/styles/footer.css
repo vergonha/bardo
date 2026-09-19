@@ -99,8 +99,21 @@ footer {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 200px;
+  width: 280px;
   justify-content: flex-end;
+}
+#output-device {
+  max-width: 110px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 2px 4px;
+  cursor: pointer;
+}
+#output-device option {
+  background: var(--bg-raised);
+  color: var(--text);
 }
 .volume-slider i {
   font-size: 12px;

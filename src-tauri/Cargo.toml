@@ -30,6 +30,8 @@ dirs = "5"
 souvlaki = "0.8.3"
 keyring = { version = "3", features = ["windows-native"] }
 protobuf = "3"
+cpal = "0.16"
+rodio = "0.21"
 
 librespot-core     = { git = "https://github.com/librespot-org/librespot", branch = "dev" }
 librespot-playback = { git = "https://github.com/librespot-org/librespot", branch = "dev", features = ["rodio-backend"] }
