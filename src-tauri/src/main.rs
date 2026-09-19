@@ -43,9 +43,8 @@ pub struct WebApiState {
     pub refresh_task: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
-pub fn spotify_client_id() -> String {
-    std::env::var("SPOTIFY_CLIENT_ID")
-        .expect("SPOTIFY_CLIENT_ID must be set")
+pub fn spotify_client_id() -> &'static str {
+    env!("SPOTIFY_CLIENT_ID")
 }
 
 struct TokenPair {
@@ -64,7 +63,7 @@ async fn exchange_refresh_token(refresh_token: &str) -> Result<TokenPair, String
         .form(&[
             ("grant_type", "refresh_token"),
             ("refresh_token", refresh_token),
-            ("client_id", &spotify_client_id()),
+            ("client_id", spotify_client_id()),
         ])
         .send()
         .await
@@ -340,7 +339,7 @@ async fn run_spotify_login(
 
     let token = tokio::task::spawn_blocking(|| {
         librespot_oauth::OAuthClientBuilder::new(
-            &spotify_client_id(),
+            spotify_client_id(),
             "http://127.0.0.1:8888/login",
             player::SCOPES.to_vec(),
         )
@@ -407,7 +406,7 @@ fn get_access_token(web_state: State<'_, WebApiState>) -> Result<String, String>
 
 #[tauri::command]
 fn get_client_id() -> String {
-    spotify_client_id()
+    spotify_client_id().to_string()
 }
 
 #[tauri::command]
